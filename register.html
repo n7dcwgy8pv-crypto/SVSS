@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Venue Security System – Register</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+</head>
+<body>
+  <canvas id="particleCanvas"></canvas>
+  <div class="grid-overlay"></div>
+
+  <div class="page-wrapper">
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+      <div class="left-content">
+        <div class="brand-logo">
+          <div class="logo-icon"><i class="fas fa-shield-halved"></i></div>
+          <div class="brand-text">
+            <span class="brand-name">SVSS</span>
+            <span class="brand-tagline">Smart Venue Security</span>
+          </div>
+        </div>
+
+        <div class="surveillance-visual">
+          <div class="camera-hub">
+            <div class="hub-ring ring-1"></div>
+            <div class="hub-ring ring-2"></div>
+            <div class="hub-ring ring-3"></div>
+            <div class="hub-center"><i class="fas fa-eye"></i></div>
+            <div class="cam-node node-1"><i class="fas fa-video"></i><span class="cam-label">Gate A</span></div>
+            <div class="cam-node node-2"><i class="fas fa-video"></i><span class="cam-label">Gate B</span></div>
+            <div class="cam-node node-3"><i class="fas fa-video"></i><span class="cam-label">VIP</span></div>
+            <div class="cam-node node-4"><i class="fas fa-video"></i><span class="cam-label">Main</span></div>
+            <div class="cam-node node-5"><i class="fas fa-video"></i><span class="cam-label">Exit</span></div>
+            <div class="cam-node node-6"><i class="fas fa-video"></i><span class="cam-label">Lobby</span></div>
+            <svg class="hub-lines" viewBox="0 0 300 300">
+              <line x1="150" y1="150" x2="150" y2="30" class="hub-line" />
+              <line x1="150" y1="150" x2="255" y2="90" class="hub-line" />
+              <line x1="150" y1="150" x2="255" y2="210" class="hub-line" />
+              <line x1="150" y1="150" x2="150" y2="270" class="hub-line" />
+              <line x1="150" y1="150" x2="45" y2="210" class="hub-line" />
+              <line x1="150" y1="150" x2="45" y2="90" class="hub-line" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="feature-list">
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fas fa-user-check"></i></div>
+            <div class="feature-text">
+              <strong>Role-Based Access</strong>
+              <span>Granular permission control per admin level</span>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fas fa-fingerprint"></i></div>
+            <div class="feature-text">
+              <strong>Multi-Factor Auth</strong>
+              <span>Biometric & token-based verification</span>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fas fa-shield-check"></i></div>
+            <div class="feature-text">
+              <strong>Encrypted Sessions</strong>
+              <span>AES-256 end-to-end session encryption</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <div class="login-container">
+        <div class="system-header">
+          <div class="system-badge"><i class="fas fa-user-plus"></i><span>NEW REGISTRATION</span></div>
+          <h1 class="system-title">Smart Venue Security System</h1>
+          <p class="system-subtitle">Request Administrator Access</p>
+        </div>
+
+        <div class="glass-card register-card">
+          <div class="card-header">
+            <i class="fas fa-id-badge"></i>
+            <span>Create Admin Account</span>
+          </div>
+          <form id="registerForm" class="auth-form" novalidate>
+            <!-- Name row -->
+            <div class="form-row">
+              <div class="form-group">
+                <label for="firstName">First Name</label>
+                <div class="input-wrapper">
+                  <i class="fas fa-user input-icon"></i>
+                  <input type="text" id="firstName" name="firstName" placeholder="John" required />
+                  <div class="input-glow"></div>
+                </div>
+                <span class="field-error" id="firstNameError"></span>
+              </div>
+              <div class="form-group">
+                <label for="lastName">Last Name</label>
+                <div class="input-wrapper">
+                  <i class="fas fa-user input-icon"></i>
+                  <input type="text" id="lastName" name="lastName" placeholder="Doe" required />
+                  <div class="input-glow"></div>
+                </div>
+                <span class="field-error" id="lastNameError"></span>
+              </div>
+            </div>
+
+            <!-- Email -->
+            <div class="form-group">
+              <label for="regEmail">Email Address</label>
+              <div class="input-wrapper">
+                <i class="fas fa-envelope input-icon"></i>
+                <input type="email" id="regEmail" name="email" placeholder="admin@venueguard.io" autocomplete="email" required />
+                <div class="input-glow"></div>
+              </div>
+              <span class="field-error" id="regEmailError"></span>
+            </div>
+
+            <!-- Role -->
+            <div class="form-group">
+              <label for="role">Role</label>
+              <div class="input-wrapper select-wrapper">
+                <i class="fas fa-user-tie input-icon"></i>
+                <select id="role" name="role" required>
+                  <option value="" disabled selected>Select your role</option>
+                  <option value="super_admin">Super Administrator</option>
+                  <option value="security_manager">Security Manager</option>
+                  <option value="gate_operator">Gate Operator</option>
+                  <option value="analyst">Security Analyst</option>
+                </select>
+                <i class="fas fa-chevron-down select-arrow"></i>
+                <div class="input-glow"></div>
+              </div>
+              <span class="field-error" id="roleError"></span>
+            </div>
+
+            <!-- Gate Assignment (Gate Operator only) -->
+            <div class="form-group" id="gateGroup" style="display:none">
+              <label for="gateAssigned">Assigned Gate</label>
+              <div class="input-wrapper select-wrapper">
+                <i class="fas fa-door-open input-icon"></i>
+                <select id="gateAssigned" name="gateAssigned">
+                  <option value="Gate A">Gate A — Main Entrance</option>
+                  <option value="Gate B">Gate B — North Entrance</option>
+                  <option value="Gate C">Gate C — South Entrance</option>
+                  <option value="Gate D">Gate D — East Entrance</option>
+                  <option value="Gate E">Gate E — West Entrance</option>
+                  <option value="VIP-1">VIP Gate 1</option>
+                  <option value="VIP-2">VIP Gate 2</option>
+                  <option value="Exit-1">Exit Gate 1</option>
+                  <option value="Staff">Staff Entrance</option>
+                </select>
+                <i class="fas fa-chevron-down select-arrow"></i>
+                <div class="input-glow"></div>
+              </div>
+            </div>
+
+            <!-- Password -->
+            <div class="form-group">
+              <label for="regPassword">Password</label>
+              <div class="input-wrapper">
+                <i class="fas fa-lock input-icon"></i>
+                <input type="password" id="regPassword" name="password" placeholder="Create a strong password" autocomplete="new-password" required />
+                <button type="button" class="toggle-password" id="toggleRegPassword" aria-label="Toggle password visibility">
+                  <i class="fas fa-eye" id="regEyeIcon"></i>
+                </button>
+                <div class="input-glow"></div>
+              </div>
+              <div class="password-strength" id="strengthBar">
+                <div class="strength-track">
+                  <div class="strength-fill" id="strengthFill"></div>
+                </div>
+                <span class="strength-label" id="strengthLabel">Enter password</span>
+              </div>
+              <span class="field-error" id="regPasswordError"></span>
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="form-group">
+              <label for="confirmPassword">Confirm Password</label>
+              <div class="input-wrapper">
+                <i class="fas fa-lock-open input-icon"></i>
+                <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Repeat your password" autocomplete="new-password" required />
+                <button type="button" class="toggle-password" id="toggleConfirmPassword" aria-label="Toggle confirm password visibility">
+                  <i class="fas fa-eye" id="confirmEyeIcon"></i>
+                </button>
+                <div class="input-glow"></div>
+              </div>
+              <span class="field-error" id="confirmPasswordError"></span>
+            </div>
+
+            <!-- Terms -->
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="agreeTerms" name="agreeTerms" required />
+                <span class="custom-checkbox"></span>
+                <span>I agree to the <a href="#" class="inline-link">Security Policy</a> & <a href="#" class="inline-link">Terms of Use</a></span>
+              </label>
+              <span class="field-error" id="termsError"></span>
+            </div>
+
+            <button type="submit" class="btn-login" id="registerBtn">
+              <span class="btn-text"><i class="fas fa-user-plus"></i> Create Account</span>
+              <span class="btn-loader hidden"><i class="fas fa-circle-notch fa-spin"></i> Processing...</span>
+              <div class="btn-shine"></div>
+            </button>
+
+            <div class="divider"><span>or</span></div>
+            <p class="switch-link">Already have an account? <a href="index.html">Sign In</a></p>
+          </form>
+        </div>
+
+        <footer class="page-footer">
+          <div class="footer-icons">
+            <i class="fas fa-shield-halved"></i>
+            <i class="fas fa-circle-dot"></i>
+            <i class="fas fa-chart-line"></i>
+          </div>
+          <p>AI-Powered Venue Monitoring • Real-Time Security Analytics</p>
+          <p class="footer-copy">© 2026 Smart Venue Security System. All rights reserved.</p>
+        </footer>
+      </div>
+    </div>
+  </div>
+
+  <script src="particles.js"></script>
+  <script src="auth.js"></script>
+  <script src="register.js"></script>
+</body>
+</html>

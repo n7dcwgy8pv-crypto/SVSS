@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Smart Venue Security System</title>
+  <link rel="stylesheet" href="dashboard.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════
+       SIDEBAR
+  ═══════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="logo-icon"><i class="fas fa-shield-halved"></i></div>
+        <div class="logo-text">
+          <span class="logo-name">SVSS</span>
+          <span class="logo-sub">Venue Security</span>
+        </div>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+        <i class="fas fa-bars"></i>
+      </button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <a href="#" class="nav-item active" data-page="dashboard">
+        <i class="fas fa-gauge-high"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-page="monitoring" data-admin-only>
+        <i class="fas fa-video"></i>
+        <span>Live Monitoring</span>
+        <span class="nav-badge live">LIVE</span>
+      </a>
+      <a href="#" class="nav-item" data-page="tickets">
+        <i class="fas fa-qrcode"></i>
+        <span>Ticket Management</span>
+      </a>
+      <a href="#" class="nav-item" data-page="alerts" data-admin-only>
+        <i class="fas fa-triangle-exclamation"></i>
+        <span>Alerts</span>
+        <span class="nav-badge alert">3</span>
+      </a>
+
+      <div class="nav-section-label" data-admin-only>Analytics</div>
+      <a href="#" class="nav-item" data-page="analytics" data-admin-only>
+        <i class="fas fa-chart-line"></i>
+        <span>Analytics</span>
+      </a>
+      <a href="#" class="nav-item" data-page="incidents" data-admin-only>
+        <i class="fas fa-file-shield"></i>
+        <span>Incident Logs</span>
+      </a>
+      <a href="#" class="nav-item" data-page="gates" data-admin-only>
+        <i class="fas fa-door-open"></i>
+        <span>Gate Status</span>
+      </a>
+
+      <div class="nav-section-label" data-admin-only>System</div>
+      <a href="#" class="nav-item" data-page="users" data-admin-only>
+        <i class="fas fa-users-gear"></i>
+        <span>User Management</span>
+      </a>
+      <a href="#" class="nav-item" data-page="settings" data-admin-only>
+        <i class="fas fa-sliders"></i>
+        <span>Settings</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="system-status">
+        <div class="status-dot online"></div>
+        <span>All Systems Operational</span>
+      </div>
+      <a href="index.html" class="logout-btn">
+        <i class="fas fa-right-from-bracket"></i>
+        <span>Logout</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════
+       MAIN CONTENT
+  ═══════════════════════════════════════════ -->
+  <div class="main-wrapper" id="mainWrapper">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="page-breadcrumb">
+          <i class="fas fa-gauge-high"></i>
+          <span>Dashboard</span>
+          <i class="fas fa-chevron-right sep"></i>
+          <span class="current">Overview</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <!-- Live clock -->
+        <div class="live-clock">
+          <i class="fas fa-clock"></i>
+          <span id="liveClock">--:--:--</span>
+        </div>
+        <!-- AI Status -->
+        <div class="ai-status-pill">
+          <span class="pulse-ring"></span>
+          <i class="fas fa-robot"></i>
+          <span>AI Online</span>
+        </div>
+        <!-- Notifications -->
+        <button class="icon-btn notif-btn" id="notifBtn" aria-label="Notifications">
+          <i class="fas fa-bell"></i>
+          <span class="notif-count">3</span>
+        </button>
+        <!-- Profile -->
+        <div class="profile-chip" id="profileChip">
+          <div class="profile-avatar">A</div>
+          <div class="profile-info">
+            <span class="profile-name">Admin User</span>
+            <span class="profile-role">Super Admin</span>
+          </div>
+          <i class="fas fa-chevron-down"></i>
+        </div>
+      </div>
+    </header>
+
+    <!-- PROFILE DROPDOWN -->
+    <div class="profile-dropdown hidden" id="profileDropdown">
+      <div class="profile-dropdown-header">
+        <div class="pd-avatar">A</div>
+        <div>
+          <strong id="pdName">Admin User</strong>
+          <span id="pdEmail">admin@svss.io</span>
+          <span class="pd-role-badge" id="pdRole">Super Admin</span>
+        </div>
+      </div>
+      <div class="pd-divider"></div>
+      <a href="#" class="pd-item"><i class="fas fa-user-circle"></i> My Profile</a>
+      <a href="#" class="pd-item"><i class="fas fa-sliders"></i> Account Settings</a>
+      <div class="pd-divider"></div>
+      <a href="#" class="pd-item pd-logout" id="profileLogoutBtn">
+        <i class="fas fa-right-from-bracket"></i> Logout
+      </a>
+    </div>
+
+    <!-- NOTIFICATION DROPDOWN -->
+    <div class="notif-dropdown hidden" id="notifDropdown">
+      <div class="notif-header">
+        <span>Notifications</span>
+        <button class="mark-all-read">Mark all read</button>
+      </div>
+      <div class="notif-list">
+        <div class="notif-item unread alert-type">
+          <div class="notif-icon"><i class="fas fa-triangle-exclamation"></i></div>
+          <div class="notif-body">
+            <strong>Unauthorized Entry Detected</strong>
+            <p>Gate C — 2 people entered on 1 ticket</p>
+            <time>2 min ago</time>
+          </div>
+        </div>
+        <div class="notif-item unread">
+          <div class="notif-icon info"><i class="fas fa-qrcode"></i></div>
+          <div class="notif-body">
+            <strong>Duplicate QR Scan Attempt</strong>
+            <p>Ticket #TK-4821 scanned twice at Gate A</p>
+            <time>14 min ago</time>
+          </div>
+        </div>
+        <div class="notif-item unread">
+          <div class="notif-icon warn"><i class="fas fa-users"></i></div>
+          <div class="notif-body">
+            <strong>Crowd Threshold Warning</strong>
+            <p>Section B approaching capacity (92%)</p>
+            <time>31 min ago</time>
+          </div>
+        </div>
+        <div class="notif-item">
+          <div class="notif-icon ok"><i class="fas fa-circle-check"></i></div>
+          <div class="notif-body">
+            <strong>AI Module Restarted</strong>
+            <p>Detection engine updated successfully</p>
+            <time>1 hr ago</time>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE CONTENT -->
+    <main class="content" id="pageContent">
+
+      <!-- ── Welcome Banner ── -->
+      <div class="welcome-banner">
+        <div class="welcome-text">
+          <h2>Good <span id="timeGreeting">Morning</span>, Admin 👋</h2>
+          <p>Here's your real-time security overview for <strong id="todayDate">today</strong>.</p>
+        </div>
+        <div class="event-badge">
+          <i class="fas fa-calendar-star"></i>
+          <div>
+            <strong>Live Event Active</strong>
+            <span>Rock Concert — Arena Hall A</span>
+          </div>
+          <span class="event-live-dot"></span>
+        </div>
+      </div>
+
+      <!-- ── KPI Cards ── -->
+      <div class="kpi-grid">
+        <div class="kpi-card" data-color="blue">
+          <div class="kpi-icon"><i class="fas fa-ticket"></i></div>
+          <div class="kpi-body">
+            <span class="kpi-label">Tickets Validated</span>
+            <span class="kpi-value" data-target="1284">0</span>
+            <span class="kpi-delta up"><i class="fas fa-arrow-trend-up"></i> +12% vs yesterday</span>
+          </div>
+          <div class="kpi-sparkline" id="spark1"></div>
+        </div>
+        <div class="kpi-card" data-color="purple" data-admin-only>
+          <div class="kpi-icon"><i class="fas fa-person-walking-arrow-right"></i></div>
+          <div class="kpi-body">
+            <span class="kpi-label">People Detected</span>
+            <span class="kpi-value" data-target="1301">0</span>
+            <span class="kpi-delta up"><i class="fas fa-arrow-trend-up"></i> AI counted</span>
+          </div>
+          <div class="kpi-sparkline" id="spark2"></div>
+        </div>
+        <div class="kpi-card" data-color="red" data-admin-only>
+          <div class="kpi-icon"><i class="fas fa-user-slash"></i></div>
+          <div class="kpi-body">
+            <span class="kpi-label">Unauthorized Entries</span>
+            <span class="kpi-value" data-target="17">0</span>
+            <span class="kpi-delta down"><i class="fas fa-arrow-trend-down"></i> -3 vs yesterday</span>
+          </div>
+          <div class="kpi-sparkline" id="spark3"></div>
+        </div>
+        <div class="kpi-card" data-color="green" data-admin-only>
+          <div class="kpi-icon"><i class="fas fa-door-open"></i></div>
+          <div class="kpi-body">
+            <span class="kpi-label">Active Gates</span>
+            <span class="kpi-value" data-target="12">0</span>
+            <span class="kpi-delta neutral"><i class="fas fa-circle-dot"></i> 2 on standby</span>
+          </div>
+          <div class="kpi-sparkline" id="spark4"></div>
+        </div>
+        <div class="kpi-card" data-color="orange" data-admin-only>
+          <div class="kpi-icon"><i class="fas fa-triangle-exclamation"></i></div>
+          <div class="kpi-body">
+            <span class="kpi-label">Active Alerts</span>
+            <span class="kpi-value" data-target="3">0</span>
+            <span class="kpi-delta down"><i class="fas fa-arrow-trend-down"></i> 2 resolved</span>
+          </div>
+          <div class="kpi-sparkline" id="spark5"></div>
+        </div>
+        <div class="kpi-card" data-color="cyan" data-admin-only>
+          <div class="kpi-icon"><i class="fas fa-video"></i></div>
+          <div class="kpi-body">
+            <span class="kpi-label">Cameras Online</span>
+            <span class="kpi-value" data-target="24">0</span>
+            <span class="kpi-delta neutral"><i class="fas fa-circle-dot"></i> 1 offline</span>
+          </div>
+          <div class="kpi-sparkline" id="spark6"></div>
+        </div>
+      </div>
+
+      <!-- ── Middle Row: Chart + Live Feed ── -->
+      <div class="mid-row" data-admin-only>
+
+        <!-- Entry Flow Chart -->
+        <div class="glass-panel chart-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <i class="fas fa-chart-area"></i>
+              Entry Flow — Today
+            </div>
+            <div class="panel-actions">
+              <button class="tab-btn active" data-range="today">Today</button>
+              <button class="tab-btn" data-range="week">Week</button>
+              <button class="tab-btn" data-range="month">Month</button>
+            </div>
+          </div>
+          <div class="chart-legend">
+            <span class="legend-dot blue"></span><span>Ticket Scans</span>
+            <span class="legend-dot purple"></span><span>AI Detected</span>
+            <span class="legend-dot red"></span><span>Unauthorized</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="entryChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Live Alert Feed -->
+        <div class="glass-panel feed-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <i class="fas fa-bolt"></i>
+              Live Alert Feed
+            </div>
+            <span class="live-badge"><span class="blink-dot"></span>LIVE</span>
+          </div>
+          <div class="alert-feed" id="alertFeed">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Bottom Row: Gate Status + AI Detection + Incidents ── -->
+      <div class="bottom-row" data-admin-only>
+
+        <!-- Gate Status -->
+        <div class="glass-panel gate-panel">
+          <div class="panel-header">
+            <div class="panel-title"><i class="fas fa-door-open"></i> Gate Status</div>
+            <span class="panel-count" id="gateOnlineCount">12 / 14 Online</span>
+          </div>
+          <div class="gate-grid" id="gateGrid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- AI Detection Module -->
+        <div class="glass-panel ai-panel">
+          <div class="panel-header">
+            <div class="panel-title"><i class="fas fa-brain"></i> AI Detection Module</div>
+            <span class="status-pill green"><i class="fas fa-circle"></i> Running</span>
+          </div>
+
+          <div class="ai-stats">
+            <div class="ai-stat-row">
+              <span class="ai-stat-label"><i class="fas fa-eye"></i> Detection Accuracy</span>
+              <div class="ai-progress-bar">
+                <div class="ai-progress-fill" style="width:94%;background:var(--green)"></div>
+              </div>
+              <span class="ai-stat-val">94%</span>
+            </div>
+            <div class="ai-stat-row">
+              <span class="ai-stat-label"><i class="fas fa-gauge"></i> Processing Speed</span>
+              <div class="ai-progress-bar">
+                <div class="ai-progress-fill" style="width:87%;background:var(--blue)"></div>
+              </div>
+              <span class="ai-stat-val">87%</span>
+            </div>
+            <div class="ai-stat-row">
+              <span class="ai-stat-label"><i class="fas fa-microchip"></i> CPU Usage</span>
+              <div class="ai-progress-bar">
+                <div class="ai-progress-fill" style="width:62%;background:var(--purple)"></div>
+              </div>
+              <span class="ai-stat-val">62%</span>
+            </div>
+            <div class="ai-stat-row">
+              <span class="ai-stat-label"><i class="fas fa-memory"></i> Memory Usage</span>
+              <div class="ai-progress-bar">
+                <div class="ai-progress-fill" style="width:48%;background:var(--orange)"></div>
+              </div>
+              <span class="ai-stat-val">48%</span>
+            </div>
+          </div>
+
+          <div class="ai-camera-feed">
+            <div class="cam-feed-header">
+              <span><i class="fas fa-video"></i> Camera Feed Simulation</span>
+              <span class="rec-badge"><i class="fas fa-circle"></i> REC</span>
+            </div>
+            <div class="cam-feed-screen" id="camFeedScreen">
+              <div class="scan-line"></div>
+              <div class="detection-box box-1"><span>Person</span></div>
+              <div class="detection-box box-2"><span>Person</span></div>
+              <div class="detection-box box-3 alert-box"><span>⚠ Unauth</span></div>
+              <div class="cam-overlay-text">Gate C — Camera 03</div>
+              <div class="cam-stats-overlay">
+                <span><i class="fas fa-users"></i> <span id="camCount">3</span> detected</span>
+                <span><i class="fas fa-ticket"></i> 1 ticket</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Incidents -->
+        <div class="glass-panel incidents-panel">
+          <div class="panel-header">
+            <div class="panel-title"><i class="fas fa-file-shield"></i> Recent Incidents</div>
+            <a href="#" class="view-all-link">View All</a>
+          </div>
+          <div class="incidents-table-wrap">
+            <table class="incidents-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Gate</th>
+                  <th>Type</th>
+                  <th>Time</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="incidentsTbody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Donut Row: Entry Breakdown + Hourly Heatmap ── -->
+      <div class="chart-row" data-admin-only>
+        <div class="glass-panel donut-panel">
+          <div class="panel-header">
+            <div class="panel-title"><i class="fas fa-chart-pie"></i> Entry Breakdown</div>
+          </div>
+          <div class="donut-wrap">
+            <canvas id="donutChart"></canvas>
+            <div class="donut-center-label">
+              <span class="donut-total" id="donutTotal">1284</span>
+              <span>Total</span>
+            </div>
+          </div>
+          <div class="donut-legend" id="donutLegend"></div>
+        </div>
+
+        <div class="glass-panel heatmap-panel">
+          <div class="panel-header">
+            <div class="panel-title"><i class="fas fa-fire"></i> Hourly Entry Heatmap</div>
+          </div>
+          <div class="heatmap-grid" id="heatmapGrid"></div>
+          <div class="heatmap-scale">
+            <span>Low</span>
+            <div class="scale-bar"></div>
+            <span>High</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── User View: Ticket & Profile Info (user role only) ── -->
+      <div class="user-panels" data-user-only style="display:none">
+
+        <!-- My Gate Tickets -->
+        <div class="glass-panel">
+          <div class="panel-header">
+            <div class="panel-title"><i class="fas fa-ticket"></i> <span id="gateOpTicketHeader">My Tickets — Gate A</span></div>
+            <span class="live-badge"><span class="blink-dot"></span>LIVE</span>
+          </div>
+          <!-- Gate operator KPI strip -->
+          <div class="gate-op-kpi">
+            <div class="gate-op-kpi-item blue">
+              <i class="fas fa-ticket"></i>
+              <span class="gate-op-val">47</span>
+              <span class="gate-op-lbl">Scanned Today</span>
+            </div>
+            <div class="gate-op-kpi-item green">
+              <i class="fas fa-circle-check"></i>
+              <span class="gate-op-val">44</span>
+              <span class="gate-op-lbl">Valid</span>
+            </div>
+            <div class="gate-op-kpi-item red">
+              <i class="fas fa-circle-xmark"></i>
+              <span class="gate-op-val">3</span>
+              <span class="gate-op-lbl">Rejected</span>
+            </div>
+            <div class="gate-op-kpi-item orange">
+              <i class="fas fa-clone"></i>
+              <span class="gate-op-val">1</span>
+              <span class="gate-op-lbl">Duplicate</span>
+            </div>
+          </div>
+          <div class="incidents-table-wrap">
+            <table class="incidents-table">
+              <thead>
+                <tr><th>Ticket ID</th><th>Holder</th><th>Entry Time</th><th>Gate</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>#TK-4821</td><td>John Smith</td><td>18:30</td><td>Gate A</td><td><span class="badge success">Valid</span></td></tr>
+                <tr><td>#TK-4822</td><td>Sara Lee</td><td>18:32</td><td>Gate A</td><td><span class="badge success">Valid</span></td></tr>
+                <tr><td>#TK-4823</td><td>Unknown</td><td>18:35</td><td>Gate A</td><td><span class="badge danger">Rejected</span></td></tr>
+                <tr><td>#TK-4824</td><td>Mike Ross</td><td>18:40</td><td>Gate A</td><td><span class="badge success">Valid</span></td></tr>
+                <tr><td>#TK-4825</td><td>Unknown</td><td>18:44</td><td>Gate A</td><td><span class="badge warning">Duplicate</span></td></tr>
+                <tr><td>#TK-4826</td><td>Amy Chen</td><td>18:51</td><td>Gate A</td><td><span class="badge success">Valid</span></td></tr>
+                <tr><td>#TK-4827</td><td>Unknown</td><td>18:58</td><td>Gate A</td><td><span class="badge danger">Rejected</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Gate Operator Profile Card -->
+        <div class="glass-panel user-profile-card">
+          <div class="panel-header">
+            <div class="panel-title"><i class="fas fa-id-badge"></i> Operator Profile</div>
+            <span class="status-pill green"><i class="fas fa-circle"></i> On Duty</span>
+          </div>
+          <div class="user-profile-body">
+            <div class="user-avatar-large" id="userAvatarLarge">M</div>
+            <div class="user-profile-info">
+              <h3 id="userFullName">Marcus Johnson</h3>
+              <span class="user-role-tag" id="userRoleTag">Gate Operator</span>
+
+              <div class="user-detail-row">
+                <i class="fas fa-envelope"></i>
+                <span id="userEmailDisplay">gate@svss.io</span>
+              </div>
+              <div class="user-detail-row">
+                <i class="fas fa-door-open"></i>
+                <span>Assigned Gate: <strong id="userGateAssigned">Gate A</strong></span>
+              </div>
+              <div class="user-detail-row">
+                <i class="fas fa-map-marker-alt"></i>
+                <span>Position: <strong id="userPosition">Main Entrance Operator</strong></span>
+              </div>
+              <div class="user-detail-row">
+                <i class="fas fa-clock"></i>
+                <span>Shift: <strong id="userShift">18:00 – 02:00</strong></span>
+              </div>
+              <div class="user-detail-row">
+                <i class="fas fa-key"></i>
+                <span>Permissions: <strong>Gate Access, Ticket Scan</strong></span>
+              </div>
+              <div class="user-detail-row">
+                <i class="fas fa-circle-check" style="color:var(--green)"></i>
+                <span style="color:var(--green)">Status: Active & On Duty</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

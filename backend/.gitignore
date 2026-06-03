@@ -1,0 +1,4 @@
+
+# Ignore npm lockfile and dependencies
+package-lock.json
+node_modules/
