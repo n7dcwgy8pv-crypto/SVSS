@@ -69,52 +69,8 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
 
   setLoading(true);
 
-  // ── Demo credentials (works without backend) ──
-  const demoUsers = {
-    'admin@svss.io': { password: 'Admin@1234', role: 'admin',        name: 'System Administrator' },
-    'gate@svss.io':  { password: 'Gate@1234',  role: 'gate_operator', name: 'Marcus Johnson',
-                       gate: 'Gate A', shift: '18:00 – 02:00', position: 'Main Entrance Operator' },
-  };
-
-  // ── Check demo accounts first ──
-  const demo = demoUsers[email.toLowerCase()];
-  if (demo && demo.password === password) {
-    localStorage.setItem('svss_user', JSON.stringify({
-      name: demo.name, role: demo.role, email,
-      gate: demo.gate || null, shift: demo.shift || null, position: demo.position || null,
-    }));
-    localStorage.setItem('svss_access_token', 'demo_token');
-    await new Promise(r => setTimeout(r, 1000));
-    showToast(`Welcome back, ${demo.name.split(' ')[0]}! Redirecting...`, 'success');
-    setTimeout(() => { window.location.href = 'dashboard.html'; }, 1000);
-    setLoading(false);
-    return;
-  }
-
-  // ── Check localStorage registered users ──
   try {
-    const registered = JSON.parse(localStorage.getItem('svss_registered_users')) || [];
-    const found = registered.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (found && found.password === password) {
-      localStorage.setItem('svss_user', JSON.stringify({
-        name:     found.name,
-        role:     found.role,
-        email:    found.email,
-        gate:     found.gate     || null,
-        shift:    found.shift    || null,
-        position: found.position || null,
-      }));
-      localStorage.setItem('svss_access_token', 'reg_token_' + found.id);
-      await new Promise(r => setTimeout(r, 1000));
-      showToast(`Welcome, ${found.firstName}! Redirecting...`, 'success');
-      setTimeout(() => { window.location.href = 'dashboard.html'; }, 1000);
-      setLoading(false);
-      return;
-    }
-  } catch(e) { /* ignore */ }
-
-  // ── Try real backend if demo credentials don't match ──
-  try {
+    // ── Primary path: real backend API ──
     const result = await Auth.login(email, password, remember);
 
     if (result.success) {
@@ -122,18 +78,49 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
       showToast(`Welcome back, ${name.split(' ')[0]}! Redirecting...`, 'success');
       setTimeout(() => Auth.redirectAfterLogin(role), 1200);
     } else {
-      showToast(result.message || 'Invalid email or password.', 'error');
-      showError('passwordError', 'Incorrect email or password.');
+      const msg = result.message || 'Invalid email or password.';
+
+      // Friendly messages for specific backend status codes
+      if (msg.includes('pending')) {
+        showToast('Your account is pending admin approval.', 'error');
+        showError('emailError', 'Account not yet approved.');
+      } else if (msg.includes('suspended')) {
+        showToast('Your account has been suspended. Contact an administrator.', 'error');
+        showError('emailError', 'Account suspended.');
+      } else {
+        showToast(msg, 'error');
+        showError('passwordError', 'Incorrect email or password.');
+      }
     }
   } catch (err) {
-    showToast('Invalid email or password.', 'error');
-    showError('passwordError', 'Incorrect email or password.');
+    // ── Offline fallback: only when backend is completely unreachable ──
+    console.warn('[Login] Backend unreachable, trying offline fallback:', err.message);
+
+    const offlineUsers = {
+      'admin@svss.io': { password: 'Admin@1234', role: 'admin', name: 'System Administrator' },
+      'gate@svss.io':  { password: 'Gate@1234',  role: 'gate_operator', name: 'Marcus Johnson',
+                         gate: 'Gate A', shift: '18:00 – 02:00', position: 'Main Entrance Operator' },
+    };
+
+    const match = offlineUsers[email.toLowerCase()];
+    if (match && match.password === password) {
+      localStorage.setItem('svss_user', JSON.stringify({
+        name: match.name, role: match.role, email,
+        gate: match.gate || null, shift: match.shift || null, position: match.position || null,
+      }));
+      localStorage.setItem('svss_access_token', 'offline_token');
+      showToast(`Welcome back, ${match.name.split(' ')[0]}! (Offline mode)`, 'success');
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 1200);
+    } else {
+      showToast('Cannot reach the server. Check your connection.', 'error');
+      showError('passwordError', 'Server unavailable — try again shortly.');
+    }
   } finally {
     setLoading(false);
   }
 });
 
-/* ── Animate status counters ── */
+/* ── Animate status counters on login page ── */
 function animateCounter(el, target, duration = 1200) {
   let start = 0;
   const step = target / (duration / 16);

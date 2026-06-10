@@ -2,6 +2,12 @@
    SMART VENUE SECURITY — Dashboard Logic
    ============================================================ */
 
+/* ── Auth guard: redirect to login if no token ── */
+(function () {
+  const token = localStorage.getItem('svss_access_token');
+  if (!token) { window.location.href = 'index.html'; }
+})();
+
 /* ── Load user info & apply role-based visibility ── */
 (function () {
   try {
@@ -88,10 +94,8 @@ document.getElementById('profileLogoutBtn')?.addEventListener('click', (e) => {
 });
 
 function doLogout() {
-  localStorage.removeItem('svss_access_token');
-  localStorage.removeItem('svss_refresh_token');
-  localStorage.removeItem('svss_user');
-  window.location.href = 'index.html';
+  // Call backend logout to invalidate refresh token, then clear session
+  Auth.logout();
 }
 
 /* ── Profile Dropdown Toggle ── */
@@ -190,10 +194,55 @@ function animateCounter(el, target, duration = 1400) {
   }, 16);
 }
 
+// Animate static KPI cards (tickets validated etc. – from data-target attributes)
+// Real live data from the API will override these via loadDashboardSummary()
 document.querySelectorAll('.kpi-value[data-target]').forEach(el => {
   const target = parseInt(el.dataset.target);
   animateCounter(el, target);
 });
+
+/* ── Load Live Dashboard Summary from API ── */
+async function loadDashboardSummary() {
+  try {
+    const res  = await Auth.apiFetch('/dashboard/summary');
+    if (!res) return; // session expired, auth.js already redirected
+
+    const json = await res.json();
+    if (!json.success) return;
+
+    const d = json.data;
+
+    // Map API fields → KPI card data-targets and animate them
+    const mappings = [
+      // [querySelector for kpi-card color, API value]
+      { color: 'blue',   value: d.todayEntries         },  // Tickets Validated
+      { color: 'purple', value: d.flaggedPersons        },  // People Detected (flagged)
+      { color: 'red',    value: d.unauthorizedAlerts    },  // Unauthorized Entries
+      { color: 'green',  value: d.activeGates           },  // Active Gates
+      { color: 'orange', value: d.unauthorizedAlerts    },  // Active Alerts
+      { color: 'cyan',   value: d.onlineCameras         },  // Cameras Online
+    ];
+
+    mappings.forEach(({ color, value }) => {
+      if (value === undefined) return;
+      const card = document.querySelector(`.kpi-card[data-color="${color}"] .kpi-value`);
+      if (card) {
+        card.dataset.target = value;
+        animateCounter(card, value);
+      }
+    });
+
+    // Update notification AI status pill
+    if (d.aiStatus) {
+      const pill = document.querySelector('.ai-status-pill span:last-child');
+      if (pill) pill.textContent = d.aiStatus === 'online' ? 'AI Online' : 'AI Offline';
+    }
+
+  } catch (err) {
+    console.warn('[Dashboard] Summary API unavailable, using static values:', err.message);
+    // Static data-target values already rendered above — no action needed
+  }
+}
 
 /* ── Sparklines (mini canvas charts) ── */
 const sparkData = {
@@ -354,7 +403,37 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 /* ── Live Alert Feed ── */
-const feedItems = [
+const feedEl = document.getElementById('alertFeed');
+
+// Severity → CSS type mapping
+const severityTypeMap = {
+  critical: 'danger',
+  high:     'danger',
+  medium:   'warning',
+  low:      'info',
+};
+
+// Alert type → icon mapping
+const alertIconMap = {
+  unauthorized_entry: 'fa-user-slash',
+  tailgating:         'fa-users',
+  forced_entry:       'fa-door-open',
+  duplicate_scan:     'fa-qrcode',
+  crowd_threshold:    'fa-triangle-exclamation',
+  default:            'fa-triangle-exclamation',
+};
+
+function relativeTime(isoString) {
+  if (!isoString) return '';
+  const diff = Math.floor((Date.now() - new Date(isoString)) / 1000);
+  if (diff < 60)   return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return new Date(isoString).toLocaleDateString();
+}
+
+// Static fallback feed (shown when API is offline)
+const staticFeedItems = [
   { type:'danger',  icon:'fa-user-slash',          title:'Unauthorized Entry',        desc:'Gate C — 2 people / 1 ticket',    time:'just now' },
   { type:'warning', icon:'fa-qrcode',               title:'Duplicate QR Scan',         desc:'Ticket #TK-4821 at Gate A',       time:'2m ago' },
   { type:'warning', icon:'fa-users',                title:'Crowd Threshold Warning',   desc:'Section B at 92% capacity',       time:'8m ago' },
@@ -364,7 +443,7 @@ const feedItems = [
   { type:'info',    icon:'fa-robot',                title:'AI Model Updated',          desc:'Detection engine v2.4.1 loaded',  time:'1h ago' },
 ];
 
-const feedEl = document.getElementById('alertFeed');
+let feedItems = [...staticFeedItems];
 
 function renderFeed(items) {
   feedEl.innerHTML = '';
@@ -382,9 +461,32 @@ function renderFeed(items) {
   });
 }
 
-renderFeed(feedItems);
+async function loadAlertFeed() {
+  try {
+    const res  = await Auth.apiFetch('/alerts?status=open');
+    if (!res) return;
+    const json = await res.json();
+    if (!json.success || !json.data.length) { renderFeed(feedItems); return; }
 
-// Simulate live feed — add new alert every 8s
+    feedItems = json.data.map(a => ({
+      type:  severityTypeMap[a.severity] || 'info',
+      icon:  alertIconMap[a.type] || alertIconMap.default,
+      title: a.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      desc:  a.description || `Gate ${a.gate}`,
+      time:  relativeTime(a.timestamp),
+    }));
+
+    renderFeed(feedItems);
+  } catch (err) {
+    console.warn('[Dashboard] Alerts API unavailable, using static feed:', err.message);
+    renderFeed(feedItems);
+  }
+}
+
+renderFeed(feedItems);
+loadAlertFeed();
+
+// Simulate live feed additions every 8s (still useful in offline mode too)
 const liveAlerts = [
   { type:'danger',  icon:'fa-user-slash',  title:'Unauthorized Entry',      desc:'Gate A — mismatch detected',   time:'just now' },
   { type:'warning', icon:'fa-qrcode',      title:'Invalid QR Code',         desc:'Gate E — ticket expired',      time:'just now' },
@@ -400,7 +502,10 @@ setInterval(() => {
 }, 8000);
 
 /* ── Gate Status Grid ── */
-const gates = [
+const gateGrid = document.getElementById('gateGrid');
+
+// Static fallback gate data
+const staticGates = [
   { name:'Gate A', status:'online',  count:142 },
   { name:'Gate B', status:'online',  count:98  },
   { name:'Gate C', status:'alert',   count:67  },
@@ -417,20 +522,64 @@ const gates = [
   { name:'Gate H', status:'standby', count:0   },
 ];
 
-const gateGrid = document.getElementById('gateGrid');
-gates.forEach(g => {
-  const div = document.createElement('div');
-  div.className = `gate-item ${g.status}`;
-  const iconMap = { online:'fa-door-open', offline:'fa-door-closed', standby:'fa-pause-circle', alert:'fa-triangle-exclamation' };
-  div.innerHTML = `
-    <i class="fas ${iconMap[g.status]}"></i>
-    <span class="gate-name">${g.name}</span>
-    <span class="gate-status-text">${g.status === 'online' ? g.count + ' in' : g.status}</span>`;
-  gateGrid.appendChild(div);
-});
+const iconMap = {
+  open:    'fa-door-open',
+  closed:  'fa-door-closed',
+  locked:  'fa-lock',
+  standby: 'fa-pause-circle',
+  offline: 'fa-door-closed',
+  online:  'fa-door-open',
+  alert:   'fa-triangle-exclamation',
+};
+
+function renderGates(gateList) {
+  gateGrid.innerHTML = '';
+  gateList.forEach(g => {
+    const div = document.createElement('div');
+    div.className = `gate-item ${g.status}`;
+    const label = g.status === 'open' || g.status === 'online'
+      ? `${g.count ?? '—'} in`
+      : g.status;
+    div.innerHTML = `
+      <i class="fas ${iconMap[g.status] || 'fa-door-closed'}"></i>
+      <span class="gate-name">${g.name}</span>
+      <span class="gate-status-text">${label}</span>`;
+    gateGrid.appendChild(div);
+  });
+}
+
+async function loadGates() {
+  try {
+    const res  = await Auth.apiFetch('/gates');
+    if (!res) return;
+    const json = await res.json();
+    if (!json.success || !json.data.length) { renderGates(staticGates); return; }
+
+    // Map backend gate format → UI format
+    const gateList = json.data.map(g => ({
+      name:   g.name.split('–')[0].trim(),  // "Gate A – Main Entrance" → "Gate A"
+      status: g.status,                      // open | closed | locked
+      count:  g.cameras,                     // repurpose cameras field as entry count placeholder
+    }));
+
+    renderGates(gateList);
+
+    // Update gate count badge
+    const onlineCount = gateList.filter(g => g.status === 'open').length;
+    const countEl = document.getElementById('gateOnlineCount');
+    if (countEl) countEl.textContent = `${onlineCount} / ${gateList.length} Online`;
+
+  } catch (err) {
+    console.warn('[Dashboard] Gates API unavailable, using static data:', err.message);
+    renderGates(staticGates);
+  }
+}
+
+renderGates(staticGates);
+loadGates();
 
 /* ── Incidents Table ── */
-const incidents = [
+const staticIncidents = [
   { id:'INC-094', gate:'Gate C', type:'Unauthorized Entry', time:'19:42', status:'danger',  statusLabel:'Active'   },
   { id:'INC-093', gate:'Gate A', type:'Duplicate QR',       time:'19:28', status:'warning', statusLabel:'Reviewing'},
   { id:'INC-092', gate:'Gate B', type:'Tailgating',         time:'18:55', status:'warning', statusLabel:'Reviewing'},
@@ -440,16 +589,58 @@ const incidents = [
 ];
 
 const tbody = document.getElementById('incidentsTbody');
-incidents.forEach(inc => {
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td>${inc.id}</td>
-    <td>${inc.gate}</td>
-    <td><span class="badge ${inc.status}">${inc.type}</span></td>
-    <td>${inc.time}</td>
-    <td><span class="badge ${inc.status}">${inc.statusLabel}</span></td>`;
-  tbody.appendChild(tr);
-});
+
+function renderIncidents(list) {
+  tbody.innerHTML = '';
+  list.forEach(inc => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${inc.id}</td>
+      <td>${inc.gate}</td>
+      <td><span class="badge ${inc.status}">${inc.type}</span></td>
+      <td>${inc.time}</td>
+      <td><span class="badge ${inc.status}">${inc.statusLabel}</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function loadIncidents() {
+  try {
+    const res  = await Auth.apiFetch('/alerts');
+    if (!res) return;
+    const json = await res.json();
+    if (!json.success || !json.data.length) { renderIncidents(staticIncidents); return; }
+
+    const statusBadgeMap = {
+      open:     { css: 'danger',  label: 'Active'   },
+      resolved: { css: 'success', label: 'Resolved' },
+      default:  { css: 'info',    label: 'Logged'   },
+    };
+
+    const list = json.data.slice(0, 6).map((a, i) => {
+      const badge  = statusBadgeMap[a.status] || statusBadgeMap.default;
+      const timeStr = a.timestamp
+        ? new Date(a.timestamp).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', hour12: false })
+        : '—';
+      return {
+        id:          `INC-${String(100 - i).padStart(3, '0')}`,
+        gate:        `Gate ${a.gate || '?'}`,
+        type:        a.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        time:        timeStr,
+        status:      badge.css,
+        statusLabel: badge.label,
+      };
+    });
+
+    renderIncidents(list);
+  } catch (err) {
+    console.warn('[Dashboard] Incidents API unavailable, using static data:', err.message);
+    renderIncidents(staticIncidents);
+  }
+}
+
+renderIncidents(staticIncidents);
+loadIncidents();
 
 /* ── Donut Chart ── */
 const donutCtx = document.getElementById('donutChart').getContext('2d');
@@ -528,3 +719,366 @@ setInterval(() => {
   const el = document.getElementById('camCount');
   if (el) el.textContent = camCount;
 }, 3000);
+
+/* ── Bootstrap: load live data from API on page load ── */
+loadDashboardSummary();
+loadUsersTable();
+
+// Refresh KPIs + alerts every 60 seconds
+setInterval(() => {
+  loadDashboardSummary();
+  loadAlertFeed();
+  loadGates();
+  loadIncidents();
+}, 60_000);
+
+/* ============================================================
+   USER MANAGEMENT TABLE  (admin only)
+   ============================================================ */
+
+let allUsers        = [];   // full list from API
+let filteredUsers   = [];   // after role filter + search
+let activeRoleFilter = 'all';
+
+const roleLabelsMap = {
+  admin:            'Admin',
+  security_manager: 'Security Mgr',
+  gate_operator:    'Gate Operator',
+  analyst:          'Analyst',
+  user:             'User',
+};
+
+const roleIconMap = {
+  admin:            'fa-shield-halved',
+  security_manager: 'fa-user-tie',
+  gate_operator:    'fa-door-open',
+  analyst:          'fa-chart-line',
+  user:             'fa-user',
+};
+
+/* ── Fetch users from API ── */
+async function loadUsersTable() {
+  // Only run for admin role
+  const currentUser = JSON.parse(localStorage.getItem('svss_user') || '{}');
+  if (currentUser.role !== 'admin') return;
+
+  const tbody = document.getElementById('usersTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="6" class="table-loading-row"><i class="fas fa-circle-notch fa-spin"></i> Loading users…</td></tr>';
+
+  try {
+    const res  = await Auth.apiFetch('/users');
+    if (!res) return;
+    const json = await res.json();
+
+    if (!json.success) {
+      tbody.innerHTML = `<tr><td colspan="6" class="table-empty-row"><i class="fas fa-triangle-exclamation"></i>Failed to load users.</td></tr>`;
+      return;
+    }
+
+    allUsers = json.data;
+    updateRoleCounts();
+    applyFilters();
+
+  } catch (err) {
+    console.warn('[Users] API unavailable:', err.message);
+    tbody.innerHTML = `<tr><td colspan="6" class="table-empty-row"><i class="fas fa-plug-circle-xmark"></i>Could not reach server.</td></tr>`;
+  }
+}
+
+/* ── Update role count badges ── */
+function updateRoleCounts() {
+  const counts = { admin: 0, gate_operator: 0, user: 0 };
+  allUsers.forEach(u => {
+    if (u.role === 'admin') counts.admin++;
+    else if (u.role === 'gate_operator') counts.gate_operator++;
+    else counts.user++;
+  });
+
+  document.getElementById('countAdmin').textContent = counts.admin;
+  document.getElementById('countGate').textContent  = counts.gate_operator;
+  document.getElementById('countUser').textContent  = counts.user;
+
+  // Summary bar
+  const active    = allUsers.filter(u => u.status === 'active').length;
+  const pending   = allUsers.filter(u => u.status === 'pending').length;
+  const suspended = allUsers.filter(u => u.status === 'suspended').length;
+
+  document.getElementById('totalUsersCount').textContent     = allUsers.length;
+  document.getElementById('activeUsersCount').textContent    = active;
+  document.getElementById('pendingUsersCount').textContent   = pending;
+  document.getElementById('suspendedUsersCount').textContent = suspended;
+}
+
+/* ── Apply role filter + search ── */
+function applyFilters() {
+  const searchVal = (document.getElementById('userSearchInput')?.value || '').toLowerCase();
+
+  filteredUsers = allUsers.filter(u => {
+    const matchRole   = activeRoleFilter === 'all' || u.role === activeRoleFilter;
+    const fullName    = `${u.firstName} ${u.lastName}`.toLowerCase();
+    const matchSearch = !searchVal ||
+      fullName.includes(searchVal) ||
+      u.email.toLowerCase().includes(searchVal) ||
+      u.role.toLowerCase().includes(searchVal);
+    return matchRole && matchSearch;
+  });
+
+  renderUsersTable(filteredUsers);
+}
+
+/* ── Render table rows ── */
+function renderUsersTable(users) {
+  const tbody = document.getElementById('usersTableBody');
+  if (!tbody) return;
+
+  if (!users.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="table-empty-row"><i class="fas fa-users-slash"></i>No users found.</td></tr>`;
+    return;
+  }
+
+  const currentUser = JSON.parse(localStorage.getItem('svss_user') || '{}');
+
+  tbody.innerHTML = '';
+  users.forEach(u => {
+    const fullName    = `${u.firstName} ${u.lastName}`;
+    const initial     = (u.firstName || 'U').charAt(0).toUpperCase();
+    const joinedDate  = u.createdAt
+      ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : '—';
+    const isSelf      = u.email === currentUser.email;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div class="user-cell">
+          <div class="user-cell-avatar">${initial}</div>
+          <div>
+            <span class="user-cell-name">${fullName}${isSelf ? ' <span style="color:var(--blue-light);font-size:9px">(you)</span>' : ''}</span>
+            <span class="user-cell-id">#${u._id?.slice(-6).toUpperCase() || 'N/A'}</span>
+          </div>
+        </div>
+      </td>
+      <td style="color:var(--text-muted);font-size:11px">${u.email}</td>
+      <td>
+        <span class="role-badge ${u.role}">
+          <i class="fas ${roleIconMap[u.role] || 'fa-user'}"></i>
+          ${roleLabelsMap[u.role] || u.role}
+        </span>
+      </td>
+      <td><span class="status-badge ${u.status}">${u.status.charAt(0).toUpperCase() + u.status.slice(1)}</span></td>
+      <td style="font-size:11px;color:var(--text-dim)">${joinedDate}</td>
+      <td>
+        <div class="action-btns">
+          <button class="action-btn edit" title="Edit user"
+            data-id="${u._id}" data-fn="${u.firstName}" data-ln="${u.lastName}"
+            data-role="${u.role}" data-status="${u.status}">
+            <i class="fas fa-pen-to-square"></i>
+          </button>
+          <button class="action-btn delete" title="Delete user"
+            data-id="${u._id}" data-name="${fullName}"
+            ${isSelf ? 'disabled title="Cannot delete your own account"' : ''}>
+            <i class="fas fa-trash-can"></i>
+          </button>
+        </div>
+      </td>`;
+
+    // Bind edit button
+    tr.querySelector('.action-btn.edit').addEventListener('click', openEditModal);
+    // Bind delete button
+    const deleteBtn = tr.querySelector('.action-btn.delete');
+    if (!isSelf) deleteBtn.addEventListener('click', openDeleteModal);
+
+    tbody.appendChild(tr);
+  });
+}
+
+/* ── Role filter tabs ── */
+document.querySelectorAll('.role-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.role-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeRoleFilter = btn.dataset.role;
+    applyFilters();
+  });
+});
+
+/* ── Search input ── */
+document.getElementById('userSearchInput')?.addEventListener('input', applyFilters);
+
+/* ============================================================
+   EDIT MODAL
+   ============================================================ */
+function openEditModal(e) {
+  const btn = e.currentTarget;
+  document.getElementById('editUserId').value    = btn.dataset.id;
+  document.getElementById('editFirstName').value = btn.dataset.fn;
+  document.getElementById('editLastName').value  = btn.dataset.ln;
+  document.getElementById('editRole').value      = btn.dataset.role;
+  document.getElementById('editStatus').value    = btn.dataset.status;
+  document.getElementById('editPassword').value  = '';
+  hideModalError('editModalError');
+  document.getElementById('editUserModal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+  document.getElementById('editUserModal').classList.add('hidden');
+}
+
+document.getElementById('editModalClose')?.addEventListener('click',  closeEditModal);
+document.getElementById('editModalCancel')?.addEventListener('click', closeEditModal);
+
+// Close on backdrop click
+document.getElementById('editUserModal')?.addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeEditModal();
+});
+
+document.getElementById('editModalSave')?.addEventListener('click', async () => {
+  const id        = document.getElementById('editUserId').value;
+  const firstName = document.getElementById('editFirstName').value.trim();
+  const lastName  = document.getElementById('editLastName').value.trim();
+  const role      = document.getElementById('editRole').value;
+  const status    = document.getElementById('editStatus').value;
+  const password  = document.getElementById('editPassword').value;
+
+  if (!firstName || !lastName) {
+    showModalError('editModalError', 'First and last name are required.');
+    return;
+  }
+
+  setModalLoading('editModalSave', true);
+  hideModalError('editModalError');
+
+  try {
+    // Update name + status + optional password
+    const body = { firstName, lastName, status };
+    if (password) body.password = password;
+
+    const res1  = await Auth.apiFetch(`/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    const data1 = await res1.json();
+
+    if (!data1.success) {
+      showModalError('editModalError', data1.message || 'Update failed.');
+      setModalLoading('editModalSave', false);
+      return;
+    }
+
+    // Update role separately if changed
+    const originalRole = document.getElementById('editRole').getAttribute('data-original') || role;
+    const res2  = await Auth.apiFetch(`/users/${id}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    });
+    const data2 = await res2.json();
+
+    if (!data2.success) {
+      showModalError('editModalError', data2.message || 'Role update failed.');
+      setModalLoading('editModalSave', false);
+      return;
+    }
+
+    closeEditModal();
+    await loadUsersTable();
+    showDashToast('User updated successfully.', 'success');
+
+  } catch (err) {
+    showModalError('editModalError', 'Server unavailable. Please try again.');
+  } finally {
+    setModalLoading('editModalSave', false);
+  }
+});
+
+/* ============================================================
+   DELETE MODAL
+   ============================================================ */
+let pendingDeleteId = null;
+
+function openDeleteModal(e) {
+  const btn = e.currentTarget;
+  pendingDeleteId = btn.dataset.id;
+  document.getElementById('deleteUserName').textContent = btn.dataset.name;
+  hideModalError('deleteModalError');
+  document.getElementById('deleteUserModal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteUserModal').classList.add('hidden');
+  pendingDeleteId = null;
+}
+
+document.getElementById('deleteModalClose')?.addEventListener('click',  closeDeleteModal);
+document.getElementById('deleteModalCancel')?.addEventListener('click', closeDeleteModal);
+
+document.getElementById('deleteUserModal')?.addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeDeleteModal();
+});
+
+document.getElementById('deleteModalConfirm')?.addEventListener('click', async () => {
+  if (!pendingDeleteId) return;
+
+  setModalLoading('deleteModalConfirm', true);
+  hideModalError('deleteModalError');
+
+  try {
+    const res  = await Auth.apiFetch(`/users/${pendingDeleteId}`, { method: 'DELETE' });
+    const data = await res.json();
+
+    if (!data.success) {
+      showModalError('deleteModalError', data.message || 'Delete failed.');
+      setModalLoading('deleteModalConfirm', false);
+      return;
+    }
+
+    closeDeleteModal();
+    await loadUsersTable();
+    showDashToast('User deleted successfully.', 'success');
+
+  } catch (err) {
+    showModalError('deleteModalError', 'Server unavailable. Please try again.');
+  } finally {
+    setModalLoading('deleteModalConfirm', false);
+  }
+});
+
+/* ── Modal helpers ── */
+function showModalError(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function hideModalError(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('hidden');
+}
+
+function setModalLoading(btnId, loading) {
+  const btn    = document.getElementById(btnId);
+  if (!btn) return;
+  const text   = btn.querySelector('.btn-text');
+  const loader = btn.querySelector('.btn-loader');
+  btn.disabled = loading;
+  if (text)   text.style.display   = loading ? 'none' : '';
+  if (loader) loader.style.display = loading ? 'inline' : 'none';
+}
+
+/* ── Inline toast for dashboard actions (separate from login page toast) ── */
+function showDashToast(message, type = 'success') {
+  const existing = document.querySelector('.dash-toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = `toast dash-toast ${type}`;
+  toast.style.cssText = 'position:fixed;bottom:28px;right:28px;z-index:999;display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;backdrop-filter:blur(12px);animation:feedSlide 0.3s ease;';
+  toast.style.background = type === 'success'
+    ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
+  toast.style.border  = `1px solid ${type === 'success' ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)'}`;
+  toast.style.color   = type === 'success' ? 'var(--green)' : 'var(--red)';
+  toast.innerHTML     = `<i class="fas fa-${type === 'success' ? 'circle-check' : 'circle-xmark'}"></i> ${message}`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+}

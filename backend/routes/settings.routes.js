@@ -1,39 +1,36 @@
 /* ============================================================
-   Settings Routes  –  /api/settings
-   Admin only
+   Settings Routes  –  /api/settings  (MongoDB)
    ============================================================ */
-
-const express = require('express');
-const router  = express.Router();
+const express  = require('express');
+const router   = express.Router();
+const Settings = require('../config/Settings.model');
 const { authenticate, authorize } = require('../middleware/auth');
 
-let settings = {
-  systemName:        'Smart Venue Security System',
-  alertThreshold:    'medium',
-  aiSensitivity:     0.85,
-  retentionDays:     30,
-  emailNotifications: true,
-  smsNotifications:  false,
-  maintenanceMode:   false,
-};
-
-/* GET /api/settings  –  admin only */
-router.get('/', authenticate, authorize('settings:view'), (req, res) => {
-  return res.json({ success: true, data: settings });
-});
-
-/* PATCH /api/settings  –  admin only */
-router.patch('/', authenticate, authorize('settings:update'), (req, res) => {
-  const allowed = Object.keys(settings);
-  const updates = {};
-  for (const key of allowed) {
-    if (req.body[key] !== undefined) updates[key] = req.body[key];
+/* GET /api/settings */
+router.get('/', authenticate, authorize('settings:view'), async (req, res) => {
+  try {
+    let settings = await Settings.findOne();
+    if (!settings) settings = await Settings.create({});
+    return res.json({ success: true, data: settings });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to fetch settings.' });
   }
-  settings = { ...settings, ...updates };
-  return res.json({ success: true, message: 'Settings updated.', data: settings });
 });
 
-/* POST /api/settings/backup  –  admin only */
+/* PATCH /api/settings */
+router.patch('/', authenticate, authorize('settings:update'), async (req, res) => {
+  try {
+    const allowed = ['systemName','alertThreshold','aiSensitivity','retentionDays','emailNotifications','smsNotifications','maintenanceMode'];
+    const updates = {};
+    allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
+    let settings = await Settings.findOneAndUpdate({}, updates, { new: true, upsert: true });
+    return res.json({ success: true, message: 'Settings updated.', data: settings });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to update settings.' });
+  }
+});
+
+/* POST /api/settings/backup */
 router.post('/backup', authenticate, authorize('settings:backup'), (req, res) => {
   return res.json({
     success: true,

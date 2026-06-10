@@ -436,6 +436,158 @@
         </div>
       </div>
 
+      <!-- ── User Management Table (admin only) ── -->
+      <div class="glass-panel users-mgmt-panel" data-admin-only id="usersMgmtPanel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <i class="fas fa-users-gear"></i>
+            User Management
+          </div>
+          <div class="users-mgmt-actions">
+            <!-- Role filter tabs -->
+            <div class="role-filter-tabs">
+              <button class="role-tab active" data-role="all">All</button>
+              <button class="role-tab" data-role="admin">
+                <i class="fas fa-shield-halved"></i> Admins
+                <span class="role-count" id="countAdmin">0</span>
+              </button>
+              <button class="role-tab" data-role="gate_operator">
+                <i class="fas fa-door-open"></i> Gate Ops
+                <span class="role-count" id="countGate">0</span>
+              </button>
+              <button class="role-tab" data-role="user">
+                <i class="fas fa-user"></i> Users
+                <span class="role-count" id="countUser">0</span>
+              </button>
+            </div>
+            <div class="users-search-wrap">
+              <i class="fas fa-search"></i>
+              <input type="text" id="userSearchInput" placeholder="Search users…" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary stat pills -->
+        <div class="users-summary-bar">
+          <div class="usr-stat-pill blue">
+            <i class="fas fa-users"></i>
+            <span id="totalUsersCount">0</span>
+            <span>Total</span>
+          </div>
+          <div class="usr-stat-pill green">
+            <i class="fas fa-circle-check"></i>
+            <span id="activeUsersCount">0</span>
+            <span>Active</span>
+          </div>
+          <div class="usr-stat-pill orange">
+            <i class="fas fa-clock"></i>
+            <span id="pendingUsersCount">0</span>
+            <span>Pending</span>
+          </div>
+          <div class="usr-stat-pill red">
+            <i class="fas fa-ban"></i>
+            <span id="suspendedUsersCount">0</span>
+            <span>Suspended</span>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="incidents-table-wrap users-table-wrap">
+          <table class="incidents-table users-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Joined</th>
+                <th style="text-align:center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr><td colspan="6" class="table-loading-row"><i class="fas fa-circle-notch fa-spin"></i> Loading users…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── Edit User Modal ── -->
+      <div class="modal-overlay hidden" id="editUserModal">
+        <div class="modal-box">
+          <div class="modal-header">
+            <div class="modal-title"><i class="fas fa-user-pen"></i> Edit User</div>
+            <button class="modal-close" id="editModalClose"><i class="fas fa-xmark"></i></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="editUserId" />
+            <div class="modal-form-row">
+              <div class="modal-form-group">
+                <label>First Name</label>
+                <input type="text" id="editFirstName" placeholder="First name" />
+              </div>
+              <div class="modal-form-group">
+                <label>Last Name</label>
+                <input type="text" id="editLastName" placeholder="Last name" />
+              </div>
+            </div>
+            <div class="modal-form-group">
+              <label>Role</label>
+              <select id="editRole">
+                <option value="admin">Admin</option>
+                <option value="security_manager">Security Manager</option>
+                <option value="gate_operator">Gate Operator</option>
+                <option value="analyst">Analyst</option>
+                <option value="user">User</option>
+              </select>
+            </div>
+            <div class="modal-form-group">
+              <label>Status</label>
+              <select id="editStatus">
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
+            <div class="modal-form-group">
+              <label>New Password <span style="color:var(--text-dim);font-size:10px">(leave blank to keep current)</span></label>
+              <input type="password" id="editPassword" placeholder="Enter new password" autocomplete="new-password" />
+            </div>
+            <span class="modal-error hidden" id="editModalError"></span>
+          </div>
+          <div class="modal-footer">
+            <button class="modal-btn cancel" id="editModalCancel">Cancel</button>
+            <button class="modal-btn save" id="editModalSave">
+              <span class="btn-text"><i class="fas fa-floppy-disk"></i> Save Changes</span>
+              <span class="btn-loader hidden"><i class="fas fa-circle-notch fa-spin"></i></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Delete Confirm Modal ── -->
+      <div class="modal-overlay hidden" id="deleteUserModal">
+        <div class="modal-box modal-box-sm">
+          <div class="modal-header">
+            <div class="modal-title danger"><i class="fas fa-trash-can"></i> Delete User</div>
+            <button class="modal-close" id="deleteModalClose"><i class="fas fa-xmark"></i></button>
+          </div>
+          <div class="modal-body">
+            <p class="delete-confirm-text">
+              Are you sure you want to delete <strong id="deleteUserName">this user</strong>?
+              <br><span style="color:var(--text-dim);font-size:11px">This action cannot be undone.</span>
+            </p>
+            <span class="modal-error hidden" id="deleteModalError"></span>
+          </div>
+          <div class="modal-footer">
+            <button class="modal-btn cancel" id="deleteModalCancel">Cancel</button>
+            <button class="modal-btn danger" id="deleteModalConfirm">
+              <span class="btn-text"><i class="fas fa-trash-can"></i> Delete</span>
+              <span class="btn-loader hidden"><i class="fas fa-circle-notch fa-spin"></i></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- ── User View: Ticket & Profile Info (user role only) ── -->
       <div class="user-panels" data-user-only style="display:none">
 

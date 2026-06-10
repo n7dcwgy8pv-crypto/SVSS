@@ -2,7 +2,7 @@
    Frontend Auth Service  –  JWT token management
    ============================================================ */
 
-const API_BASE = 'http://localhost:6000/api';
+const API_BASE = 'http://localhost:4000/api';
 
 const Auth = (() => {
 

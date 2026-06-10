@@ -1,6 +1,6 @@
 /* ============================================================
    Registration Page  –  register.js
-   Fully offline — saves users to localStorage
+   Registers users via backend  POST /api/auth/register
    ============================================================ */
 
 // Redirect if already logged in
@@ -97,21 +97,15 @@ function setLoading(loading) {
 }
 
 /* ── Local user store helpers ── */
+// Kept only as offline check to prevent duplicate email error during offline mode
 function getRegisteredUsers() {
-  try { return JSON.parse(localStorage.getItem('svss_registered_users')) || []; }
-  catch { return []; }
-}
-
-function saveRegisteredUsers(users) {
-  localStorage.setItem('svss_registered_users', JSON.stringify(users));
+  return [];
 }
 
 function emailExists(email) {
-  // Check built-in demo accounts
+  // Built-in demo accounts only — real duplicate check is done by backend
   const builtIn = ['admin@svss.io', 'gate@svss.io'];
-  if (builtIn.includes(email.toLowerCase())) return true;
-  // Check registered users
-  return getRegisteredUsers().some(u => u.email.toLowerCase() === email.toLowerCase());
+  return builtIn.includes(email.toLowerCase());
 }
 
 /* ── Role config ── */
@@ -145,7 +139,7 @@ document.getElementById('registerForm')?.addEventListener('submit', async (e) =>
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     showError('regEmailError', 'Please enter a valid email address.'); valid = false;
   } else if (emailExists(email)) {
-    showError('regEmailError', 'This email is already registered.'); valid = false;
+    showError('regEmailError', 'This email is reserved — use a different address.'); valid = false;
   }
 
   if (!role) { showError('roleError', 'Please select a role.'); valid = false; }
@@ -171,31 +165,37 @@ document.getElementById('registerForm')?.addEventListener('submit', async (e) =>
   setLoading(true);
 
   try {
+    // ── Call backend POST /api/auth/register ──
     const result = await Auth.register({
       firstName,
       lastName,
       email: email.toLowerCase(),
       password,
-      role,
-      gateAssigned,
+      role,         // backend enforces 'user' status; admin approves later
+      gateAssigned, // stored as extra info; backend can extend the model to use it
     });
 
     setLoading(false);
 
     if (!result.success) {
-      if (result.message && result.message.toLowerCase().includes('email')) {
-        showError('regEmailError', result.message);
+      // Map backend error messages to field errors
+      const msg = result.message || 'Registration failed. Please try again.';
+      if (msg.toLowerCase().includes('email') || msg.toLowerCase().includes('exists')) {
+        showError('regEmailError', 'An account with this email already exists.');
+      } else if (msg.toLowerCase().includes('password')) {
+        showError('regPasswordError', msg);
       } else {
-        showToast(result.message || 'Registration failed. Please try again.', 'error');
+        showToast(msg, 'error');
       }
       return;
     }
 
-    showToast(`Account created! Welcome, ${firstName}. Redirecting to login...`, 'success');
-    setTimeout(() => { window.location.href = 'index.html'; }, 2200);
+    showToast(`Account created! Welcome, ${firstName}. Pending admin approval — redirecting to login...`, 'success');
+    setTimeout(() => { window.location.href = 'index.html'; }, 2500);
+
   } catch (err) {
     setLoading(false);
-    showToast('Unable to connect to the server. Please try again later.', 'error');
-    console.error('Registration error:', err);
+    console.error('[Register] Error:', err);
+    showToast('Unable to connect to the server. Please check your connection and try again.', 'error');
   }
 });
