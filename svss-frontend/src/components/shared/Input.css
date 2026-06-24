@@ -1,0 +1,75 @@
+/* ═══ SVSS Input / Field System ═══ */
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.field__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: .6px;
+}
+.field__required { color: var(--neon-pink); margin-left: 2px; }
+
+.field__input {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255,255,255,.04);
+  border: 1.5px solid rgba(255,255,255,.08);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text-1);
+  transition:
+    border-color var(--t-fast),
+    background var(--t-fast),
+    box-shadow var(--t-fast);
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 46px;
+}
+.field__input::placeholder { color: var(--text-4); }
+
+.field__input:hover {
+  border-color: rgba(255,255,255,.15);
+  background: rgba(255,255,255,.06);
+}
+.field__input:focus {
+  outline: none;
+  border-color: var(--neon-blue);
+  background: rgba(79,142,255,.06);
+  box-shadow: 0 0 0 3px rgba(79,142,255,.15), 0 0 20px rgba(79,142,255,.08);
+}
+.field__input--error {
+  border-color: var(--danger);
+}
+.field__input--error:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239,68,68,.15);
+}
+
+/* Make native selects look right */
+select.field__input {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236060a0' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 40px;
+  appearance: none;
+}
+select.field__input option { background: var(--surface-2); color: var(--text-1); }
+
+textarea.field__input { resize: vertical; min-height: 100px; line-height: 1.6; }
+
+.field__hint  { font-size: 12px; color: var(--text-3); }
+.field__error {
+  font-size: 12px;
+  color: var(--danger);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.field__error::before {
+  content: '⚠';
+  font-size: 11px;
+}

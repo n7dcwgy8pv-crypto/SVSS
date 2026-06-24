@@ -1,0 +1,33 @@
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 64px 24px;
+  text-align: center;
+  background: var(--grad-card);
+  border: 2px dashed rgba(255,255,255,.07);
+  border-radius: var(--radius-xl);
+  animation: float-up .3s var(--ease-smooth) both;
+}
+
+.empty-state__icon {
+  width: 64px; height: 64px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  margin-bottom: 4px;
+}
+
+.empty-state__title {
+  font-family: var(--font-display);
+  font-size: 16px; font-weight: 700;
+  color: var(--text-2);
+}
+.empty-state__desc {
+  font-size: 13px; color: var(--text-4);
+  max-width: 320px; line-height: 1.6;
+}
+.empty-state__action { margin-top: 4px; }

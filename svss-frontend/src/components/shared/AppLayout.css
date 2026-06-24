@@ -1,0 +1,15 @@
+/* ═══ SVSS App Layout ═══ */
+.app-layout { display: flex; min-height: 100vh; }
+
+.app-main {
+  margin-left: var(--sidebar-w);
+  margin-top: var(--header-h);
+  flex: 1;
+  padding: 32px;
+  min-height: calc(100vh - var(--header-h));
+  animation: float-up .35s var(--ease-smooth) both;
+}
+
+@media (max-width: 900px) {
+  .app-main { margin-left: 0; padding: 20px 16px; }
+}

@@ -1,0 +1,78 @@
+/* ═══ Reports Page ═══ */
+.reports-page { display: flex; flex-direction: column; gap: 36px; }
+
+.report-section-title {
+  font-family: var(--font-display);
+  font-size: 13px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .7px;
+  color: var(--text-3);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--glass-border);
+  margin-bottom: 14px;
+}
+
+.report-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.report-breakdown {
+  background: var(--grad-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 22px 26px;
+}
+.report-breakdown-title {
+  font-size: 13px; font-weight: 700;
+  color: var(--text-2); margin-bottom: 18px;
+}
+
+.report-bars { display: flex; flex-direction: column; gap: 14px; }
+.report-bar-row {
+  display: flex; align-items: center; gap: 14px;
+}
+.report-bar-label { width: 90px; flex-shrink: 0; }
+.report-bar-track {
+  flex: 1; height: 8px;
+  background: rgba(255,255,255,.05);
+  border-radius: var(--radius-full); overflow: hidden;
+}
+.report-bar-fill {
+  height: 100%; border-radius: var(--radius-full);
+  transition: width .6s var(--ease-smooth);
+}
+.report-bar-fill--success { background: linear-gradient(90deg, var(--neon-green), var(--neon-cyan)); }
+.report-bar-fill--warning { background: linear-gradient(90deg, var(--neon-amber), var(--neon-pink)); }
+.report-bar-fill--danger  { background: linear-gradient(90deg, var(--neon-red), var(--neon-pink)); }
+.report-bar-fill--neutral { background: var(--surface-4); }
+.report-bar-count { font-size: 12px; color: var(--text-4); width: 80px; text-align: right; }
+
+.report-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.report-type-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  text-align: center;
+  transition: all var(--t-fast);
+}
+.report-type-card:hover {
+  border-color: rgba(79,142,255,.3);
+  background: var(--glass-hover);
+  transform: translateY(-2px);
+}
+.report-type-count {
+  font-family: var(--font-display);
+  font-size: 32px; font-weight: 800;
+  color: var(--text-1); line-height: 1;
+}
+.report-type-label { font-size: 11px; color: var(--text-4); margin-top: 6px; font-weight: 500; }
+
+@media (max-width: 900px) { .report-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 500px) { .report-stats { grid-template-columns: 1fr; } }

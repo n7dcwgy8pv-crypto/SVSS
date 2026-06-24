@@ -1,0 +1,62 @@
+/* ═══ Tickets Page ═══ */
+.tickets-page { display: flex; flex-direction: column; gap: 20px; }
+
+.tickets-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.tickets-search {
+  display: flex; gap: 8px; flex: 1; min-width: 280px; align-items: flex-end;
+}
+.tickets-search .field { flex: 1; }
+
+.tickets-list  { display: flex; flex-direction: column; gap: 8px; }
+.tickets-empty {
+  text-align: center; padding: 64px 20px;
+  color: var(--text-4);
+  background: var(--grad-card);
+  border-radius: var(--radius-lg);
+  border: 2px dashed rgba(255,255,255,.06);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.tickets-empty p { font-size: 15px; }
+
+/* ── Ticket detail modal ── */
+.ticket-detail {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 28px;
+}
+.ticket-detail__left {
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+}
+.ticket-detail__photo {
+  width: 140px; height: 140px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-3);
+  border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center;
+}
+.ticket-detail__photo img { width: 100%; height: 100%; object-fit: cover; }
+.ticket-detail__no-photo { font-size: 13px; color: var(--text-4); text-align: center; }
+
+.ticket-detail__right { display: flex; flex-direction: column; gap: 14px; }
+.ticket-detail__dl    { display: flex; flex-direction: column; gap: 12px; }
+.ticket-detail__dl > div { display: flex; flex-direction: column; gap: 3px; }
+.ticket-detail__dl dt {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--text-4);
+}
+.ticket-detail__dl dd { font-size: 14px; color: var(--text-1); font-weight: 500; }
+.ticket-detail__dl code {
+  font-family: monospace; font-size: 13px; color: var(--neon-blue);
+  background: rgba(79,142,255,.08); padding: 2px 8px; border-radius: var(--radius-sm);
+}
+
+@media (max-width: 560px) {
+  .ticket-detail { grid-template-columns: 1fr; }
+  .ticket-detail__left { align-items: flex-start; }
+}

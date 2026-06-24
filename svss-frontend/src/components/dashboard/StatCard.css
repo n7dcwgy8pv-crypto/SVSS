@@ -1,0 +1,106 @@
+/* ═══ SVSS Stat Card ═══ */
+.stat-card {
+  position: relative;
+  background: var(--grad-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  cursor: default;
+  transition: transform var(--t-fast), box-shadow var(--t-fast), border-color var(--t-fast);
+  box-shadow: var(--shadow-card);
+  animation: float-up .4s var(--ease-smooth) both;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--grad-card);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255,255,255,.14);
+}
+
+/* Glowing orb top-right */
+.stat-card__orb {
+  position: absolute;
+  top: -30px; right: -30px;
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  opacity: .25;
+  filter: blur(24px);
+  pointer-events: none;
+}
+.stat-card--primary .stat-card__orb { background: var(--neon-blue); }
+.stat-card--success .stat-card__orb { background: var(--neon-green); }
+.stat-card--warning .stat-card__orb { background: var(--neon-amber); }
+.stat-card--danger  .stat-card__orb { background: var(--neon-red);   }
+
+/* Top accent line */
+.stat-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  opacity: .7;
+}
+.stat-card--primary::after { background: linear-gradient(90deg, var(--neon-blue), var(--neon-violet)); }
+.stat-card--success::after { background: linear-gradient(90deg, var(--neon-green), var(--neon-cyan)); }
+.stat-card--warning::after { background: linear-gradient(90deg, var(--neon-amber), var(--neon-pink)); }
+.stat-card--danger::after  { background: linear-gradient(90deg, var(--neon-red), var(--neon-pink)); }
+.stat-card--default::after { background: var(--grad-primary); }
+
+.stat-card:hover::after { opacity: 1; }
+
+/* Card header */
+.stat-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stat-card__icon {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.stat-card--primary .stat-card__icon { background: rgba(79,142,255,.15);  color: var(--neon-blue); }
+.stat-card--success .stat-card__icon { background: rgba(16,185,129,.15);  color: var(--neon-green); }
+.stat-card--warning .stat-card__icon { background: rgba(245,158,11,.15);  color: var(--neon-amber); }
+.stat-card--danger  .stat-card__icon { background: rgba(239,68,68,.15);   color: var(--neon-red); }
+.stat-card--default .stat-card__icon { background: rgba(255,255,255,.06); color: var(--text-2); }
+
+.stat-card__label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--text-3);
+  margin-bottom: 2px;
+}
+.stat-card__value {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--text-1);
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.stat-card__subtitle {
+  font-size: 12px;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

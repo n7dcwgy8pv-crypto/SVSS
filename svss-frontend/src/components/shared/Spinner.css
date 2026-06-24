@@ -1,0 +1,27 @@
+/* ═══ SVSS Spinner ═══ */
+.spinner-wrap { display: inline-flex; align-items: center; justify-content: center; }
+
+.spinner {
+  border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,.08);
+  border-top-color: var(--neon-blue);
+  animation: spin .7s linear infinite;
+}
+.spinner-wrap--sm .spinner { width: 18px; height: 18px; }
+.spinner-wrap--md .spinner { width: 30px; height: 30px; }
+.spinner-wrap--lg .spinner, .spinner--lg {
+  width: 44px; height: 44px; border-width: 3px;
+  border-top-color: var(--neon-violet);
+  filter: drop-shadow(0 0 8px var(--neon-violet));
+}
+
+.page-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--text-3);
+  font-size: 13px;
+}

@@ -1,0 +1,45 @@
+/* ═══ Users Page ═══ */
+.users-page    { display: flex; flex-direction: column; gap: 20px; }
+.users-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.users-count   { font-size: 13px; color: var(--text-3); font-weight: 500; }
+
+.users-table-wrap {
+  background: var(--grad-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+}
+.users-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.users-table th {
+  padding: 12px 18px;
+  text-align: left;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px;
+  color: var(--text-4);
+  background: rgba(255,255,255,.02);
+  border-bottom: 1px solid var(--glass-border);
+}
+.users-table td {
+  padding: 13px 18px;
+  border-bottom: 1px solid rgba(255,255,255,.03);
+  color: var(--text-2);
+  vertical-align: middle;
+}
+.users-table tr:last-child td { border-bottom: none; }
+.users-table tr:hover td { background: var(--glass-bg); }
+
+.user-name-cell { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--text-1); }
+.user-avatar {
+  width: 32px; height: 32px;
+  background: var(--grad-primary);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 13px; color: #fff;
+  flex-shrink: 0;
+}
+.td-muted { color: var(--text-4); font-size: 12px; }
+
+/* Add user form */
+.user-form       { display: flex; flex-direction: column; gap: 14px; }
+.form-grid-2     { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.user-form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }

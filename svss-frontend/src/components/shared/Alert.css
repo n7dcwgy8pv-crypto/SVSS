@@ -1,0 +1,44 @@
+/* ═══ SVSS Alert System ═══ */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  animation: float-up .3s var(--ease-smooth) both;
+}
+
+.alert--success {
+  background: rgba(16,185,129,.1);
+  border-color: rgba(16,185,129,.25);
+  color: #6ee7b7;
+}
+.alert--warning {
+  background: rgba(245,158,11,.1);
+  border-color: rgba(245,158,11,.25);
+  color: #fde68a;
+}
+.alert--error {
+  background: rgba(239,68,68,.1);
+  border-color: rgba(239,68,68,.25);
+  color: #fca5a5;
+}
+.alert--info {
+  background: rgba(79,142,255,.1);
+  border-color: rgba(79,142,255,.25);
+  color: #bfdbfe;
+}
+
+.alert__icon    { flex-shrink: 0; margin-top: 1px; opacity: .9; }
+.alert__body    { flex: 1; min-width: 0; }
+.alert__title   { font-weight: 700; font-size: 14px; }
+.alert__text    { font-size: 13px; margin-top: 3px; opacity: .85; line-height: 1.5; }
+.alert__dismiss {
+  background: none; border: none;
+  opacity: .5; cursor: pointer;
+  padding: 2px; line-height: 0;
+  color: inherit; border-radius: var(--radius-sm);
+  transition: opacity var(--t-fast);
+}
+.alert__dismiss:hover { opacity: 1; }

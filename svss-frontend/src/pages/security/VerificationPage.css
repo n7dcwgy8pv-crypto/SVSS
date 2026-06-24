@@ -1,0 +1,149 @@
+/* ═══ Verification Page ═══ */
+.verify-page { display: flex; flex-direction: column; gap: 20px; }
+
+.verify-empty {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 18px; padding: 72px 24px; text-align: center;
+  color: var(--text-3); font-size: 15px;
+  background: var(--grad-card);
+  border: 2px dashed rgba(255,255,255,.07);
+  border-radius: var(--radius-xl);
+}
+.verify-empty p { max-width: 280px; line-height: 1.6; }
+
+/* ── Decision banner ── */
+.verify-decision-banner {
+  border-radius: var(--radius-lg);
+  padding: 16px 22px;
+  display: flex; align-items: center; gap: 14px;
+  animation: float-up .3s var(--ease-smooth) both;
+}
+.verify-decision-banner--approved {
+  background: var(--success-dim);
+  border: 1px solid rgba(16,185,129,.3);
+  box-shadow: var(--glow-green);
+}
+.verify-decision-banner--rejected {
+  background: var(--danger-dim);
+  border: 1px solid rgba(239,68,68,.3);
+  box-shadow: var(--glow-red);
+}
+.verify-decision-banner__icon {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.verify-decision-banner--approved .verify-decision-banner__icon { background: rgba(16,185,129,.2); }
+.verify-decision-banner--rejected .verify-decision-banner__icon { background: rgba(239,68,68,.2); }
+.verify-decision-banner__title { font-size: 15px; font-weight: 700; color: var(--text-1); }
+.verify-decision-banner__sub   { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+/* ── Layout ── */
+.verify-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* ── Photo panel ── */
+.verify-photo-panel {
+  background: var(--grad-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: 22px;
+  display: flex; flex-direction: column; gap: 14px;
+  position: relative; overflow: hidden;
+}
+.verify-photo-panel::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--grad-primary);
+}
+.verify-panel-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .7px; color: var(--text-4);
+}
+.verify-photo {
+  width: 100%; aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-3);
+  border: 1px solid var(--glass-border);
+  position: relative;
+}
+.verify-photo img { width: 100%; height: 100%; object-fit: cover; }
+.verify-no-photo {
+  width: 100%; height: 100%; min-height: 220px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px; color: var(--text-4); font-size: 13px;
+  padding: 20px; text-align: center;
+}
+
+.verify-photo-note {
+  font-size: 12px; font-weight: 600; line-height: 1.5;
+  padding: 10px 12px;
+  background: rgba(245,158,11,.08);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(245,158,11,.2);
+  color: #fcd34d; text-align: center;
+}
+
+/* ── Info panel ── */
+.verify-info-panel { display: flex; flex-direction: column; gap: 16px; }
+
+.verify-info-card {
+  background: var(--grad-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: 26px;
+  display: flex; flex-direction: column; gap: 20px;
+  position: relative; overflow: hidden;
+}
+.verify-info-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--grad-success);
+}
+
+.verify-info-header {
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.verify-visitor-name {
+  font-family: var(--font-display);
+  font-size: 24px; font-weight: 800; color: var(--text-1);
+}
+
+.verify-dl { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.verify-dl > div { display: flex; flex-direction: column; gap: 3px; }
+.verify-dl dt {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--text-4);
+}
+.verify-dl dd { font-size: 14px; color: var(--text-1); font-weight: 500; }
+.verify-dl code {
+  font-family: monospace; font-size: 13px; color: var(--neon-blue);
+  background: rgba(79,142,255,.08); padding: 2px 8px; border-radius: var(--radius-sm);
+}
+
+/* ── Decision controls ── */
+.verify-actions-card {
+  background: var(--grad-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: 22px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.verify-actions-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .7px; color: var(--text-4); margin-bottom: 2px;
+}
+.verify-actions-row { display: flex; gap: 10px; }
+.verify-post-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+@media (max-width: 760px) {
+  .verify-layout { grid-template-columns: 1fr; }
+  .verify-photo   { max-width: 260px; margin: 0 auto; }
+  .verify-dl      { grid-template-columns: 1fr; }
+}
