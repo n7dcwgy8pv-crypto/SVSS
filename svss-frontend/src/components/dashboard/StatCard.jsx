@@ -1,24 +1,33 @@
 import { useEffect, useRef, useState } from 'react'
 import './StatCard.css'
 
-/** Smoothly counts up from 0 → target over duration ms (ease-out cubic) */
+/**
+ * Animates a number from 0 → target on mount using an
+ * ease-out cubic rAF loop. Falls back gracefully for
+ * non-numeric values.
+ */
 function useCountUp(target, duration = 900) {
   const [display, setDisplay] = useState(0)
   const rafRef = useRef(null)
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (target == null || isNaN(Number(target))) { setDisplay(target); return }
+    if (target == null || isNaN(Number(target))) {
+      setDisplay(target) // eslint-disable-line react-hooks/set-state-in-effect
+      return
+    }
+
     const end   = Number(target)
     const start = performance.now()
 
     const tick = (now) => {
       const progress = Math.min((now - start) / duration, 1)
       const eased    = 1 - Math.pow(1 - progress, 3) // ease-out cubic
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplay(Math.round(eased * end))
-      if (progress < 1) rafRef.current = requestAnimationFrame(tick)
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(tick)
+      }
     }
+
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
   }, [target, duration])
