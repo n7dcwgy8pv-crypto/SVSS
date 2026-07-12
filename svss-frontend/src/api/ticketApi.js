@@ -1,71 +1,67 @@
-import { MOCK_TICKETS } from './mockData'
+import apiClient from './apiClient'
 
-const delay = (ms) => new Promise((r) => setTimeout(r, ms))
-let _tickets = [...MOCK_TICKETS]
+// ── Ticket list & single fetch ────────────────────────────────────────────────
 
 export const getTicketsApi = async (search = '') => {
-  await delay(400)
-  if (!search) return _tickets
-  const q = search.toLowerCase()
-  return _tickets.filter(
-    (t) =>
-      t.visitorName.toLowerCase().includes(q) ||
-      t.id.toLowerCase().includes(q) ||
-      t.event.toLowerCase().includes(q)
-  )
+  const params = {}
+  if (search) params.search = search
+  const res = await apiClient.get('/tickets', { params })
+  // res.data = { success: true, data: Ticket[], pagination: ... }
+  return res.data.data
 }
 
 export const getTicketByIdApi = async (id) => {
-  await delay(300)
-  const ticket = _tickets.find((t) => t.id === id)
-  if (!ticket) throw new Error(`Ticket ${id} not found.`)
-  return ticket
+  const res = await apiClient.get(`/tickets/${id}`)
+  return res.data.data
 }
+
+// ── Create ticket (admin) — multipart/form-data ───────────────────────────────
+// Receives the raw File object for photo — do NOT convert to base64 first.
+// Axios sets Content-Type multipart/form-data automatically when given FormData.
 
 export const createTicketApi = async (data) => {
-  await delay(600)
-  const id = `TKT-${String(_tickets.length + 1).padStart(3, '0')}`
-  const newTicket = {
-    id,
-    ...data,
-    status: 'valid',
-    usedAt: null,
-    qrData: `${id}|${data.visitorName}|${data.event}|${data.zone}|${data.seat}`,
-    createdAt: new Date().toISOString().split('T')[0],
-  }
-  _tickets = [newTicket, ..._tickets]
-  return newTicket
+  const form = new FormData()
+  form.append('visitorName', data.visitorName)
+  form.append('visitorEmail', data.visitorEmail)
+  form.append('event', data.event)
+  form.append('eventDate', data.eventDate)
+  form.append('zone', data.zone)
+  form.append('seat', data.seat)
+  form.append('photo', data.photo)
+
+  // Delete Content-Type so Axios sets multipart/form-data with the correct boundary automatically.
+  // If Content-Type: application/json leaks through (from the apiClient default), multer
+  // on the backend will not parse the file and will return it as an empty object.
+  const res = await apiClient.post('/tickets', form, {
+    headers: { 'Content-Type': undefined },
+  })
+  return res.data.data
 }
+
+// ── Update ticket (admin) ─────────────────────────────────────────────────────
 
 export const updateTicketApi = async (id, updates) => {
-  await delay(400)
-  const idx = _tickets.findIndex((t) => t.id === id)
-  if (idx === -1) throw new Error(`Ticket ${id} not found.`)
-  _tickets[idx] = { ..._tickets[idx], ...updates }
-  return _tickets[idx]
+  const res = await apiClient.put(`/tickets/${id}`, updates)
+  return res.data.data
 }
 
+// ── QR Verification (security) ────────────────────────────────────────────────
+
 export const verifyTicketQRApi = async (qrData) => {
-  await delay(500)
-  const ticket = _tickets.find((t) => t.qrData === qrData || t.id === qrData)
-  if (!ticket) return { valid: false, reason: 'Ticket not found in system.' }
-  if (ticket.status === 'used')
-    return { valid: false, reason: 'Ticket has already been used.', ticket }
-  if (ticket.status === 'invalid')
-    return { valid: false, reason: 'Ticket is marked invalid.', ticket }
-  return { valid: true, ticket }
+  const res = await apiClient.post('/tickets/verify', { qrData })
+  // Server always returns 200 — check res.data.data.valid for the business result
+  return res.data.data
+  // Shape: { valid: boolean, reason: string | null, ticket: Ticket | null }
 }
 
 export const approveEntryApi = async (ticketId) => {
-  await delay(400)
-  const idx = _tickets.findIndex((t) => t.id === ticketId)
-  if (idx !== -1) {
-    _tickets[idx] = { ..._tickets[idx], status: 'used', usedAt: new Date().toISOString() }
-  }
-  return { success: true, usedAt: new Date().toISOString() }
+  const res = await apiClient.post(`/tickets/${ticketId}/approve`)
+  return res.data.data
+  // Shape: { success: true, ticketId, usedAt }
 }
 
 export const rejectEntryApi = async (ticketId) => {
-  await delay(300)
-  return { success: true, ticketId }
+  const res = await apiClient.post(`/tickets/${ticketId}/reject`)
+  return res.data.data
+  // Shape: { success: true, ticketId }
 }

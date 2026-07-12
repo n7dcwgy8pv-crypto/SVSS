@@ -5,6 +5,7 @@ import './Sidebar.css'
 
 const adminLinks = [
   { to: '/admin/dashboard',   label: 'Dashboard',    icon: 'grid',          color: '#4f8eff' },
+  { to: '/admin/events',      label: 'Events',        icon: 'star',          color: '#f59e0b' },
   { to: '/admin/tickets',     label: 'Tickets',       icon: 'ticket',        color: '#a855f7' },
   { to: '/admin/tickets/new', label: 'Create Ticket', icon: 'plus-circle',   color: '#10b981' },
   { to: '/admin/users',       label: 'Users',         icon: 'users',         color: '#00d4ff' },
@@ -38,6 +39,7 @@ function Icon({ name, size = 16 }) {
     'log-out': <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
     shield: <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>,
     calendar: <><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
+    star: <><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></>,
   }
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"

@@ -10,38 +10,47 @@ import Select from '../../components/shared/Select'
 import { PageSpinner } from '../../components/shared/Spinner'
 import PageHeader from '../../components/shared/PageHeader'
 import { getUsersApi, createUserApi, toggleUserStatusApi } from '../../api/userApi'
+import { getErrorMessage } from '../../utils/apiError'
 import { roleLabel, formatDate } from '../../utils/helpers'
 import './UsersPage.css'
 
 export default function UsersPage() {
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [creating, setCreating] = useState(false)
+  const [users, setUsers]           = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [showModal, setShowModal]   = useState(false)
+  const [creating, setCreating]     = useState(false)
+  // After user creation the server returns a one-time temp password — show it immediately
+  const [tempPassword, setTempPassword] = useState(null)
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm()
 
   const load = async () => {
     setLoading(true)
-    try { setUsers(await getUsersApi()) } finally { setLoading(false) }
+    try { setUsers(await getUsersApi()) }
+    catch (err) { toast.error(getErrorMessage(err)) }
+    finally { setLoading(false) }
   }
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load()
-  }, [])
+  useEffect(() => { void load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = async (data) => {
     setCreating(true)
     try {
-      const user = await createUserApi(data)
+      // API returns { user, temporaryPassword }
+      const result = await createUserApi(data)
+      const user = result.user ?? result   // handle both shapes gracefully
+      const pwd  = result.temporaryPassword ?? null
       setUsers(prev => [...prev, user])
       toast.success(`User ${user.name} created.`, { icon: '👤' })
       setShowModal(false)
       reset()
+      // Surface the one-time password so the admin can copy it
+      if (pwd) setTempPassword({ name: user.name, password: pwd })
     } catch (err) {
-      toast.error(err.message)
-    } finally { setCreating(false) }
+      toast.error(getErrorMessage(err))
+    } finally {
+      setCreating(false)
+    }
   }
 
   const toggleStatus = async (id) => {
@@ -50,7 +59,7 @@ export default function UsersPage() {
       setUsers(prev => prev.map(u => u.id === id ? updated : u))
       toast.success(`User ${updated.status === 'active' ? 'activated' : 'deactivated'}.`)
     } catch (err) {
-      toast.error(err.message)
+      toast.error(getErrorMessage(err))
     }
   }
 
@@ -63,13 +72,15 @@ export default function UsersPage() {
           subtitle="Control access roles and account status for all team members."
           action={
             <Button onClick={() => setShowModal(true)}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.5" aria-hidden="true">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
               Add User
             </Button>
           }
         />
+
         <div className="users-toolbar">
           <p className="users-count">{users.length} user{users.length !== 1 ? 's' : ''} registered</p>
         </div>
@@ -124,7 +135,12 @@ export default function UsersPage() {
         )}
       </div>
 
-      <Modal isOpen={showModal} onClose={() => { setShowModal(false); reset() }} title="Add New User">
+      {/* ── Create user modal ── */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => { setShowModal(false); reset() }}
+        title="Add New User"
+      >
         <form onSubmit={handleSubmit(onSubmit)} noValidate aria-label="Add user form">
           <div className="user-form">
             <div className="form-grid-2">
@@ -157,6 +173,42 @@ export default function UsersPage() {
             </div>
           </div>
         </form>
+      </Modal>
+
+      {/* ── Temporary password modal (shown once after user creation) ── */}
+      <Modal
+        isOpen={!!tempPassword}
+        onClose={() => setTempPassword(null)}
+        title="User Created — Temporary Password"
+      >
+        {tempPassword && (
+          <div className="temp-pass-modal">
+            <p className="temp-pass-modal__msg">
+              Share this temporary password with <strong>{tempPassword.name}</strong>.
+              It is displayed <strong>once only</strong> and cannot be retrieved again.
+            </p>
+            <div className="temp-pass-modal__box" aria-label="Temporary password">
+              <code>{tempPassword.password}</code>
+            </div>
+            <p className="temp-pass-modal__hint">
+              The user should change their password after first login.
+            </p>
+            <Button
+              fullWidth
+              onClick={() => {
+                navigator.clipboard?.writeText(tempPassword.password)
+                toast.success('Copied to clipboard!')
+              }}
+            >
+              Copy to Clipboard
+            </Button>
+            <Button variant="secondary" fullWidth
+              style={{ marginTop: 8 }}
+              onClick={() => setTempPassword(null)}>
+              Done
+            </Button>
+          </div>
+        )}
       </Modal>
     </AppLayout>
   )

@@ -14,10 +14,12 @@ export default function CustomerDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getMyTicketsApi(user.id)
+    // No userId param — server scopes to the authenticated token automatically
+    getMyTicketsApi()
       .then(setTickets)
+      .catch(() => setTickets([]))
       .finally(() => setLoading(false))
-  }, [user.id])
+  }, [])
 
   const valid   = tickets.filter((t) => t.status === 'valid').length
   const used    = tickets.filter((t) => t.status === 'used').length

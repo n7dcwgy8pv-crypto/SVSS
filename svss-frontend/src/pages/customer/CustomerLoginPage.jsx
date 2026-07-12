@@ -8,6 +8,7 @@ import Alert from '../../components/shared/Alert'
 import { customerLoginApi } from '../../api/authApi'
 import useAuthStore from '../../store/authStore'
 import ParticleCanvas from '../../components/auth/ParticleCanvas'
+import { getErrorMessage } from '../../utils/apiError'
 import '../public/AuthPages.css'
 import './CustomerAuthPages.css'
 
@@ -40,7 +41,7 @@ export default function CustomerLoginPage() {
       const safePath = from?.startsWith('/customer') ? from : '/customer/dashboard'
       navigate(safePath, { replace: true })
     } catch (err) {
-      setApiError(err.message)
+      setApiError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }

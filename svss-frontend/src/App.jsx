@@ -15,6 +15,8 @@ import CustomerRegisterPage from './pages/customer/CustomerRegisterPage'
 import AdminDashboard   from './pages/admin/AdminDashboard'
 import TicketsPage      from './pages/admin/TicketsPage'
 import CreateTicketPage from './pages/admin/CreateTicketPage'
+import AdminEventsPage  from './pages/admin/EventsPage'
+import CreateEventPage  from './pages/admin/CreateEventPage'
 import UsersPage        from './pages/admin/UsersPage'
 import ReportsPage      from './pages/admin/ReportsPage'
 import IncidentsPage    from './pages/admin/IncidentsPage'
@@ -61,6 +63,15 @@ export default function App() {
       } />
       <Route path="/admin/dashboard" element={
         <ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>
+      } />
+      <Route path="/admin/events" element={
+        <ProtectedRoute allowedRoles={['admin']}><AdminEventsPage /></ProtectedRoute>
+      } />
+      <Route path="/admin/events/new" element={
+        <ProtectedRoute allowedRoles={['admin']}><CreateEventPage /></ProtectedRoute>
+      } />
+      <Route path="/admin/events/:eventId/edit" element={
+        <ProtectedRoute allowedRoles={['admin']}><CreateEventPage /></ProtectedRoute>
       } />
       <Route path="/admin/tickets" element={
         <ProtectedRoute allowedRoles={['admin']}><TicketsPage /></ProtectedRoute>

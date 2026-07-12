@@ -9,41 +9,54 @@ import Button from '../../components/shared/Button'
 import Alert from '../../components/shared/Alert'
 import QRCodeDisplay from '../../components/tickets/QRCodeDisplay'
 import { createTicketApi } from '../../api/ticketApi'
-import { fileToBase64, validateImageFile } from '../../utils/helpers'
+import { validateImageFile } from '../../utils/helpers'
 import './CreateTicketPage.css'
 
 export default function CreateTicketPage() {
   const navigate = useNavigate()
-  const [loading, setLoading]           = useState(false)
-  const [photoPreview, setPhotoPreview] = useState(null)
-  const [photoError, setPhotoError]     = useState('')
+  const [loading, setLoading]             = useState(false)
+  // Keep both the File (for upload) and a preview URL (for display)
+  const [photoFile, setPhotoFile]         = useState(null)
+  const [photoPreview, setPhotoPreview]   = useState(null)
+  const [photoError, setPhotoError]       = useState('')
   const [createdTicket, setCreatedTicket] = useState(null)
-  const [apiError, setApiError]         = useState('')
+  const [apiError, setApiError]           = useState('')
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm()
 
-  const handlePhotoChange = async (e) => {
+  const handlePhotoChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     const err = validateImageFile(file)
     if (err) { setPhotoError(err); return }
     setPhotoError('')
-    setPhotoPreview(await fileToBase64(file))
+    setPhotoFile(file)
+    // Object URL for preview — revoked on unmount / next selection
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  const handleRemovePhoto = () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+    setPhotoFile(null)
+    setPhotoPreview(null)
   }
 
   const onSubmit = async (data) => {
-    if (!photoPreview) { setPhotoError('Please upload a visitor photo.'); return }
+    if (!photoFile) { setPhotoError('Please upload a visitor photo.'); return }
     setApiError('')
     setLoading(true)
     try {
-      const ticket = await createTicketApi({ ...data, photoUrl: photoPreview })
+      // Pass the raw File — createTicketApi builds FormData internally
+      const ticket = await createTicketApi({ ...data, photo: photoFile })
       setCreatedTicket(ticket)
       toast.success(`Ticket ${ticket.id} created!`, { icon: '🎫' })
       reset()
-      setPhotoPreview(null)
+      handleRemovePhoto()
     } catch (err) {
-      setApiError(err.message)
-    } finally { setLoading(false) }
+      setApiError(err?.response?.data?.message || err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   /* ── Success screen ── */
@@ -82,7 +95,9 @@ export default function CreateTicketPage() {
         <div className="create-ticket-form-card">
           <div>
             <h2 className="form-card-title">New Visitor Ticket</h2>
-            <p className="form-card-sub">Fill in visitor details and upload a photo to generate a QR-code entry pass.</p>
+            <p className="form-card-sub">
+              Fill in visitor details and upload a photo to generate a QR-code entry pass.
+            </p>
           </div>
 
           {apiError && <Alert type="error" onDismiss={() => setApiError('')}>{apiError}</Alert>}
@@ -138,7 +153,8 @@ export default function CreateTicketPage() {
                     ? <img src={photoPreview} alt="Visitor preview" className="photo-preview" />
                     : (
                       <div className="photo-placeholder">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-4)" strokeWidth="1.2" aria-hidden="true">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+                          stroke="var(--text-4)" strokeWidth="1.2" aria-hidden="true">
                           <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                           <circle cx="12" cy="13" r="4"/>
                         </svg>
@@ -147,13 +163,22 @@ export default function CreateTicketPage() {
                       </div>
                     )
                   }
-                  <input id="photo-upload" type="file" accept="image/jpeg,image/png,image/webp"
-                    className="sr-only" onChange={handlePhotoChange}
-                    aria-describedby={photoError ? 'photo-error' : undefined} />
+                  <input
+                    id="photo-upload"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    onChange={handlePhotoChange}
+                    aria-describedby={photoError ? 'photo-error' : undefined}
+                  />
                 </label>
                 {photoPreview && (
-                  <button type="button" className="photo-remove"
-                    onClick={() => setPhotoPreview(null)} aria-label="Remove photo">
+                  <button
+                    type="button"
+                    className="photo-remove"
+                    onClick={handleRemovePhoto}
+                    aria-label="Remove photo"
+                  >
                     Remove photo
                   </button>
                 )}
@@ -164,12 +189,12 @@ export default function CreateTicketPage() {
             </div>
 
             <div className="form-actions" style={{ marginTop: 24 }}>
-              <Button type="button" variant="secondary"
-                onClick={() => navigate('/admin/tickets')}>
+              <Button type="button" variant="secondary" onClick={() => navigate('/admin/tickets')}>
                 Cancel
               </Button>
               <Button type="submit" loading={loading}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                   <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/>
                 </svg>
                 Generate QR Ticket

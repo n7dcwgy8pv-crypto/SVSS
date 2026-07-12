@@ -8,20 +8,23 @@
 1. [Project Overview](#1-project-overview)
 2. [Base Configuration](#2-base-configuration)
 3. [Authentication & Authorization](#3-authentication--authorization)
-4. [Data Models / Schemas](#4-data-models--schemas)
-5. [Module 1 — Staff Authentication](#5-module-1--staff-authentication)
-6. [Module 2 — Customer Authentication](#6-module-2--customer-authentication)
-7. [Module 3 — Tickets (Admin)](#7-module-3--tickets-admin)
-8. [Module 4 — QR Verification (Security)](#8-module-4--qr-verification-security)
-9. [Module 5 — Incidents](#9-module-5--incidents)
-10. [Module 6 — Users (Admin)](#10-module-6--users-admin)
-11. [Module 7 — Dashboard & Reports (Admin)](#11-module-7--dashboard--reports-admin)
-12. [Module 8 — Events (Customer)](#12-module-8--events-customer)
-13. [Module 9 — Customer Tickets](#13-module-9--customer-tickets)
-14. [Error Handling](#14-error-handling)
-15. [File Upload Handling](#15-file-upload-handling)
-16. [Security Requirements](#16-security-requirements)
-17. [Environment Variables](#17-environment-variables)
+4. [Database Schema](#4-database-schema)
+5. [Data Models / Schemas](#5-data-models--schemas)
+6. [Module 1 — Staff Authentication](#6-module-1--staff-authentication)
+7. [Module 2 — Customer Authentication](#7-module-2--customer-authentication)
+8. [Module 3 — Session / Profile](#8-module-3--session--profile)
+9. [Module 4 — Tickets (Admin)](#9-module-4--tickets-admin)
+10. [Module 5 — QR Verification (Security)](#10-module-5--qr-verification-security)
+11. [Module 6 — Incidents](#11-module-6--incidents)
+12. [Module 7 — Users (Admin)](#12-module-7--users-admin)
+13. [Module 8 — Dashboard & Reports](#13-module-8--dashboard--reports)
+14. [Module 9 — Events (Customer)](#14-module-9--events-customer)
+15. [Module 10 — Customer Tickets](#15-module-10--customer-tickets)
+16. [Error Handling](#16-error-handling)
+17. [File Upload Handling](#17-file-upload-handling)
+18. [Security Requirements](#18-security-requirements)
+19. [Environment Variables](#19-environment-variables)
+20. [Complete Endpoint Summary](#20-complete-endpoint-summary)
 
 ---
 
@@ -32,15 +35,18 @@
 **Purpose:**
 A venue security and ticket management platform serving three user roles:
 
-| Role | Portal | Description |
-|------|--------|-------------|
-| `admin` | Staff Portal (`/login`) | Creates tickets, manages users, views reports and incidents |
-| `security` | Staff Portal (`/login`) | Scans QR codes, verifies entry, reports incidents |
-| `customer` | Customer Portal (`/customer/login`) | Browses events, purchases tickets, views their QR passes |
+| Role | Portal URL | Description |
+|------|-----------|-------------|
+| `admin` | `/login` | Creates tickets, manages users, views reports and incidents |
+| `security` | `/login` | Scans QR codes, verifies visitor entry, reports incidents |
+| `customer` | `/customer/login` | Browses events, purchases tickets, views their own QR passes |
 
-**Two completely independent authentication flows:**
-- **Staff Auth** — `/api/auth/login` and `/api/auth/register` — only creates/validates `admin` and `security` accounts
-- **Customer Auth** — `/api/customer/auth/login` and `/api/customer/auth/register` — only creates/validates `customer` accounts
+**Two completely independent authentication flows — never mix them:**
+- **Staff Auth** — `/api/auth/*` — only creates/validates `admin` and `security` accounts
+- **Customer Auth** — `/api/customer/auth/*` — only creates/validates `customer` accounts
+
+**Frontend API client:** Axios instance, base URL from `VITE_API_BASE_URL` env var (defaults to `/api`).
+Attaches `Authorization: Bearer <token>` on every request. Handles global `401` by logging out and redirecting to the appropriate login page.
 
 ---
 
@@ -54,29 +60,23 @@ A venue security and ticket management platform serving three user roles:
 ### Request Headers
 ```
 Content-Type: application/json
-Authorization: Bearer <jwt_token>   ← required on all protected routes
+Authorization: Bearer <jwt_token>    ← required on all protected routes
 ```
 
-### Response Format
-All responses follow a consistent envelope:
+For file upload endpoints use `Content-Type: multipart/form-data` (set automatically by the HTTP client).
+
+### Response Envelope
+
+All responses follow a consistent structure:
 
 ```json
-// Success
+// Success (single resource)
 {
   "success": true,
   "data": { ... }
 }
 
-// Error
-{
-  "success": false,
-  "message": "Human-readable error description",
-  "errors": [ ... ]   // optional field-level validation errors
-}
-```
-
-### Pagination (list endpoints)
-```json
+// Success (list)
 {
   "success": true,
   "data": [ ... ],
@@ -87,127 +87,254 @@ All responses follow a consistent envelope:
     "totalPages": 8
   }
 }
+
+// Error
+{
+  "success": false,
+  "message": "Human-readable summary of what went wrong.",
+  "errors": [
+    { "field": "email", "message": "Email is already in use." }
+  ]
+}
 ```
 
-Query params for paginated routes: `?page=1&pageSize=20`
+- `errors` array is only present on `400`/`422` responses.
+- Never include a `data` key in error responses.
+- Never include stack traces in production.
+
+### Pagination
+All list endpoints support pagination via query params:
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `page` | integer | 1 | Page number (1-indexed) |
+| `pageSize` | integer | 20 | Items per page (max 100) |
 
 ---
 
 ## 3. Authentication & Authorization
 
 ### Token Strategy
-- Use **JWT (JSON Web Token)** — Bearer token in `Authorization` header.
-- Token payload must include: `id`, `email`, `role`, `status`.
-- Token expiry: **24 hours** (access token). Optionally implement refresh tokens.
+- Use **JWT (JSON Web Token)** — Bearer token in the `Authorization` header.
+- Token payload **must** include: `id`, `email`, `role`, `status`.
+- Access token expiry: **24 hours**.
+- Optionally implement refresh tokens (separate `refreshToken` in response, long-lived, stored in `httpOnly` cookie).
 
-### Role Guards
-Every protected route must validate:
-1. Token is present and valid.
-2. Token is not expired.
-3. User `status` is `active`.
-4. User `role` matches the allowed roles for that route.
+### Role Guard — Every Protected Route Must:
+1. Confirm `Authorization: Bearer <token>` header is present.
+2. Verify the token signature and expiry.
+3. Confirm `user.status === "active"` — inactive users are rejected with `403`.
+4. Confirm `user.role` is in the allowed roles list for that route.
+
+### Portal Isolation Rules
+- `POST /api/auth/login` — if credentials belong to a `customer` account → `403`
+- `POST /api/customer/auth/login` — if credentials belong to an `admin` or `security` account → `403`
+- Never allow a customer token to access any `/api/tickets`, `/api/users`, `/api/incidents`, `/api/dashboard`, or `/api/reports` endpoint.
 
 ### Role Permission Matrix
 
-| Route Group | `admin` | `security` | `customer` |
-|-------------|:-------:|:----------:|:----------:|
-| Staff Auth endpoints | Public | Public | Blocked |
-| Customer Auth endpoints | Blocked | Blocked | Public |
+| Endpoint | `admin` | `security` | `customer` |
+|----------|:-------:|:----------:|:----------:|
+| `POST /api/auth/login` | Public | Public | ❌ Blocked |
+| `POST /api/auth/register` | Public | Public | ❌ Blocked |
+| `POST /api/customer/auth/login` | ❌ Blocked | ❌ Blocked | Public |
+| `POST /api/customer/auth/register` | ❌ Blocked | ❌ Blocked | Public |
+| `GET /api/me` | ✅ | ✅ | ✅ |
 | `GET /api/tickets` | ✅ | ✅ | ❌ |
+| `GET /api/tickets/:id` | ✅ | ✅ | ❌ |
 | `POST /api/tickets` | ✅ | ❌ | ❌ |
 | `PUT /api/tickets/:id` | ✅ | ❌ | ❌ |
-| `POST /api/tickets/:id/verify` | ❌ | ✅ | ❌ |
+| `POST /api/tickets/verify` | ❌ | ✅ | ❌ |
 | `POST /api/tickets/:id/approve` | ❌ | ✅ | ❌ |
 | `POST /api/tickets/:id/reject` | ❌ | ✅ | ❌ |
 | `GET /api/incidents` | ✅ | ✅ | ❌ |
+| `GET /api/incidents/:id` | ✅ | ✅ | ❌ |
 | `POST /api/incidents` | ❌ | ✅ | ❌ |
+| `PATCH /api/incidents/:id/status` | ✅ | ❌ | ❌ |
 | `GET /api/users` | ✅ | ❌ | ❌ |
 | `POST /api/users` | ✅ | ❌ | ❌ |
 | `PATCH /api/users/:id/status` | ✅ | ❌ | ❌ |
 | `GET /api/dashboard/stats` | ✅ | ✅ | ❌ |
 | `GET /api/dashboard/scans` | ✅ | ✅ | ❌ |
+| `GET /api/reports/tickets` | ✅ | ❌ | ❌ |
+| `GET /api/reports/incidents` | ✅ | ❌ | ❌ |
+| `GET /api/reports/entries` | ✅ | ❌ | ❌ |
 | `GET /api/events` | ❌ | ❌ | ✅ |
 | `GET /api/events/:id` | ❌ | ❌ | ✅ |
 | `GET /api/customer/tickets` | ❌ | ❌ | ✅ |
+| `GET /api/customer/tickets/:id` | ❌ | ❌ | ✅ |
 | `POST /api/customer/tickets/purchase` | ❌ | ❌ | ✅ |
 
 ---
 
-## 4. Data Models / Schemas
+## 4. Database Schema
+
+Recommended relational schema. Use PostgreSQL (or any relational DB). All `id` fields use UUID v4.
+
+### `users`
+```sql
+CREATE TABLE users (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       VARCHAR(255) NOT NULL,
+  email      VARCHAR(255) UNIQUE NOT NULL,
+  password   VARCHAR(255) NOT NULL,          -- bcrypt hash
+  role       VARCHAR(20)  NOT NULL CHECK (role IN ('admin','security','customer')),
+  status     VARCHAR(20)  NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
+  created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+```
+
+### `events`
+```sql
+CREATE TABLE events (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        VARCHAR(255) NOT NULL,
+  venue       VARCHAR(255) NOT NULL,
+  date        DATE NOT NULL,
+  time        VARCHAR(10)  NOT NULL,         -- e.g. '19:00'
+  category    VARCHAR(50)  NOT NULL,
+  image_url   TEXT,
+  description TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### `event_zones`
+```sql
+CREATE TABLE event_zones (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id   UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  name       VARCHAR(50)  NOT NULL,          -- VIP | Premium | General | Standard
+  price      NUMERIC(10,2) NOT NULL,
+  available  INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (event_id, name)
+);
+```
+
+### `tickets`
+Unified table for both admin-created and customer self-purchased tickets.
+```sql
+CREATE TABLE tickets (
+  id            VARCHAR(20)  PRIMARY KEY,    -- e.g. TKT-001 or TKT-C001
+  visitor_name  VARCHAR(255) NOT NULL,
+  visitor_email VARCHAR(255),
+  event_id      UUID REFERENCES events(id) ON DELETE SET NULL,
+  event         VARCHAR(255) NOT NULL,       -- denormalized event name snapshot
+  event_date    DATE,
+  venue         VARCHAR(255),
+  zone          VARCHAR(50)  NOT NULL,
+  seat          VARCHAR(50)  NOT NULL,
+  price         NUMERIC(10,2),               -- null for admin-created tickets
+  status        VARCHAR(20)  NOT NULL DEFAULT 'valid' CHECK (status IN ('valid','used','invalid')),
+  used_at       TIMESTAMPTZ,
+  qr_data       TEXT UNIQUE NOT NULL,
+  photo_url     TEXT,
+  owner_id      UUID REFERENCES users(id) ON DELETE SET NULL,  -- null for admin tickets
+  purchased_at  TIMESTAMPTZ,                -- null for admin-created tickets
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_tickets_status   ON tickets(status);
+CREATE INDEX idx_tickets_owner    ON tickets(owner_id);
+CREATE INDEX idx_tickets_qr_data  ON tickets(qr_data);
+```
+
+### `incidents`
+```sql
+CREATE TABLE incidents (
+  id           VARCHAR(20)  PRIMARY KEY,    -- e.g. INC-001
+  type         VARCHAR(30)  NOT NULL CHECK (type IN ('duplicate','suspicious','invalid','other')),
+  ticket_id    VARCHAR(20)  REFERENCES tickets(id) ON DELETE SET NULL,
+  description  TEXT NOT NULL,
+  reported_by_id UUID NOT NULL REFERENCES users(id),
+  status       VARCHAR(30)  NOT NULL DEFAULT 'open' CHECK (status IN ('open','investigating','resolved')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_incidents_status ON incidents(status);
+CREATE INDEX idx_incidents_type   ON incidents(type);
+```
+
+### `scan_logs`
+```sql
+CREATE TABLE scan_logs (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_id   VARCHAR(20) REFERENCES tickets(id) ON DELETE SET NULL,
+  visitor_name VARCHAR(255),               -- denormalized snapshot
+  result      VARCHAR(20) NOT NULL CHECK (result IN ('approved','rejected')),
+  scanned_by  UUID NOT NULL REFERENCES users(id),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_scan_logs_created ON scan_logs(created_at DESC);
+```
+
+### Sequential ID Generation
+Admin tickets: `TKT-001`, `TKT-002`, … (use a DB sequence or `LPAD(nextval('ticket_seq')::text, 3, '0')`)
+Customer tickets: `TKT-C001`, `TKT-C002`, … (separate sequence with `C` prefix)
+Incidents: `INC-001`, `INC-002`, … (separate sequence)
+
+---
+
+## 5. Data Models / Schemas
+
+These are the JSON shapes returned by the API (camelCase, mapped from snake_case DB columns).
 
 ### User
 ```json
 {
-  "id": "string (UUID)",
-  "name": "string",
-  "email": "string (unique)",
+  "id": "uuid",
+  "name": "Alice Admin",
+  "email": "admin@svss.io",
   "role": "admin | security | customer",
   "status": "active | inactive",
-  "createdAt": "ISO 8601 date string"
+  "createdAt": "2026-01-10"
 }
 ```
+> Password is **never** included in any API response.
 
-### Ticket (Admin-created / Staff-managed)
+### Ticket (unified — admin-created and customer-purchased)
 ```json
 {
-  "id": "string  e.g. TKT-001",
-  "visitorName": "string",
-  "visitorEmail": "string",
-  "event": "string",
-  "eventDate": "date string  YYYY-MM-DD",
-  "zone": "VIP | Premium | General | Standard",
-  "seat": "string  e.g. A12",
+  "id": "TKT-001",
+  "visitorName": "John Doe",
+  "visitorEmail": "john@email.com",
+  "eventId": "uuid | null",
+  "event": "Rock Concert 2026",
+  "eventDate": "2026-09-15",
+  "venue": "Grand Arena, Downtown",
+  "zone": "VIP",
+  "seat": "A12",
+  "price": 250,
   "status": "valid | used | invalid",
   "usedAt": "ISO 8601 datetime | null",
-  "qrData": "string  encoded QR payload",
-  "photoUrl": "string (URL to stored image) | null",
-  "createdAt": "ISO 8601 date string"
+  "qrData": "TKT-001|John Doe|Rock Concert 2026|VIP|A12",
+  "photoUrl": "https://storage.example.com/photos/tkt001.jpg | null",
+  "ownerId": "uuid | null",
+  "purchasedAt": "ISO 8601 datetime | null",
+  "createdAt": "2026-06-01"
 }
 ```
-
-### Customer Ticket (Self-purchased)
-Extends the Ticket schema with ownership fields:
-```json
-{
-  "id": "string  e.g. TKT-C001",
-  "ownerId": "string (User.id)",
-  "ownerName": "string",
-  "ownerEmail": "string",
-  "eventId": "string (Event.id)",
-  "event": "string",
-  "eventDate": "date string",
-  "venue": "string",
-  "zone": "string",
-  "seat": "string  auto-assigned  e.g. AUTO-G45",
-  "price": "number",
-  "status": "valid | used | invalid",
-  "usedAt": "ISO 8601 datetime | null",
-  "qrData": "string",
-  "photoUrl": "string | null",
-  "purchasedAt": "ISO 8601 datetime",
-  "visitorName": "string",
-  "visitorEmail": "string",
-  "createdAt": "ISO 8601 date string"
-}
-```
+- `ownerId` / `purchasedAt` / `price` are `null` for admin-created tickets.
+- For customer-purchased tickets these are always populated.
 
 ### Event
 ```json
 {
-  "id": "string  e.g. EVT-001",
-  "name": "string",
-  "venue": "string",
-  "date": "YYYY-MM-DD",
-  "time": "HH:MM",
+  "id": "EVT-001",
+  "name": "Rock Concert 2026",
+  "venue": "Grand Arena, Downtown",
+  "date": "2026-09-15",
+  "time": "19:00",
   "category": "Concert | Expo | Conference | Festival",
-  "image": "string (URL)",
-  "description": "string",
+  "image": "https://storage.example.com/events/evt001.jpg",
+  "description": "An electrifying night of rock music...",
   "zones": [
-    {
-      "name": "VIP | Premium | General | Standard",
-      "price": "number",
-      "available": "number (remaining seats)"
-    }
+    { "name": "VIP",      "price": 250, "available": 20 },
+    { "name": "Premium",  "price": 150, "available": 45 },
+    { "name": "General",  "price": 80,  "available": 120 },
+    { "name": "Standard", "price": 50,  "available": 200 }
   ]
 }
 ```
@@ -215,55 +342,57 @@ Extends the Ticket schema with ownership fields:
 ### Incident
 ```json
 {
-  "id": "string  e.g. INC-001",
+  "id": "INC-001",
   "type": "duplicate | suspicious | invalid | other",
-  "ticketId": "string",
-  "description": "string",
-  "reportedBy": "string (User.name or User.id)",
+  "ticketId": "TKT-002 | null",
+  "description": "Ticket scanned a second time at Gate 3.",
+  "reportedBy": "Bob Security",
+  "reportedById": "uuid",
   "status": "open | investigating | resolved",
-  "createdAt": "ISO 8601 datetime"
+  "createdAt": "2026-06-20T18:35:00.000Z"
 }
 ```
+> `reportedBy` is a denormalized name snapshot. `reportedById` is the foreign key for joins.
 
-### Scan Log (for recent scan history)
+### Scan Log
 ```json
 {
-  "id": "string",
-  "ticketId": "string",
-  "visitorName": "string",
+  "id": "uuid",
+  "ticketId": "TKT-001",
+  "visitorName": "John Doe",
   "result": "approved | rejected",
-  "scannedBy": "string (User.id)",
-  "time": "ISO 8601 datetime"
+  "scannedBy": "uuid",
+  "time": "2026-06-23T08:10:00.000Z"
 }
 ```
 
 ### Dashboard Stats
 ```json
 {
-  "totalTickets": "number",
-  "usedTickets": "number",
-  "validTickets": "number",
-  "invalidTickets": "number",
-  "totalEntries": "number",
-  "approvedEntries": "number",
-  "rejectedEntries": "number",
-  "totalIncidents": "number",
-  "openIncidents": "number",
-  "todayScans": "number"
+  "totalTickets": 512,
+  "usedTickets": 318,
+  "validTickets": 189,
+  "invalidTickets": 5,
+  "totalEntries": 318,
+  "approvedEntries": 305,
+  "rejectedEntries": 13,
+  "totalIncidents": 7,
+  "openIncidents": 3,
+  "todayScans": 42
 }
 ```
 
 ---
 
-## 5. Module 1 — Staff Authentication
+## 6. Module 1 — Staff Authentication
 
-> Routes for `admin` and `security` roles only. Customer accounts are rejected.
+> Routes for `admin` and `security` roles only. Customer accounts are hard-blocked.
 
 ---
 
 ### POST `/api/auth/login`
 
-**Description:** Authenticate a staff member (admin or security).
+**Description:** Authenticate a staff member.
 
 **Access:** Public
 
@@ -280,10 +409,10 @@ Extends the Ticket schema with ownership fields:
 - `password` — required, minimum 4 characters
 
 **Business Rules:**
-- Look up user by email where `status = active`
-- If user role is `customer` → return `403` with message: `"Customer accounts must use the Customer Portal to sign in."`
-- Verify password against stored hash
-- On success, return user object and JWT token
+1. Look up user by `email` where `status = 'active'`
+2. If user `role === 'customer'` → return `403`: `"Customer accounts must use the Customer Portal to sign in."`
+3. Verify `password` against stored bcrypt hash
+4. Generate and return JWT token
 
 **Success Response `200`:**
 ```json
@@ -298,26 +427,26 @@ Extends the Ticket schema with ownership fields:
       "status": "active",
       "createdAt": "2026-01-10"
     },
-    "token": "eyJhbGci..."
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   }
 }
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
-| `400` | Validation errors (missing fields) |
-| `401` | Invalid credentials |
-| `403` | Customer account — use customer portal |
+| Status | Condition |
+|--------|-----------|
+| `400` | Missing or invalid fields |
+| `401` | Email not found or password mismatch |
 | `403` | Account is inactive |
+| `403` | Account belongs to `customer` role |
 
 ---
 
 ### POST `/api/auth/register`
 
-**Description:** Register a new staff member (admin or security roles only).
+**Description:** Register a new staff account (`admin` or `security` only).
 
-**Access:** Public *(consider restricting to admin-only in production)*
+**Access:** Public *(restrict to admin-only or invite-only in production)*
 
 **Request Body:**
 ```json
@@ -332,32 +461,40 @@ Extends the Ticket schema with ownership fields:
 ```
 
 **Validation:**
-- `firstName`, `lastName` — required, string
-- `email` — required, valid email, unique in DB
-- `role` — required, must be `admin` or `security` (reject `customer`)
+- `firstName`, `lastName` — required, non-empty string
+- `email` — required, valid email format, unique across ALL users
+- `role` — required, must be `admin` or `security`; return `400` if `customer` is submitted
 - `password` — required, minimum 8 characters, must contain at least one number
 - `confirmPassword` — must match `password`
 
 **Business Rules:**
-- If `role` is `customer` → return `400`: `"Staff registration does not accept customer role."`
-- Hash password before storing (bcrypt, cost factor ≥ 12)
-- Return user (without password) and JWT token
+- Reject `role = "customer"` with message: `"Staff registration does not accept the customer role."`
+- Hash password with bcrypt (cost ≥ 12)
+- Set `status = "active"` by default
+- Return user object (no password) and JWT token
 
 **Success Response `201`:**
 ```json
 {
   "success": true,
   "data": {
-    "user": { ... },
+    "user": {
+      "id": "u6",
+      "name": "Bob Security",
+      "email": "bob@svss.io",
+      "role": "security",
+      "status": "active",
+      "createdAt": "2026-07-12"
+    },
     "token": "eyJhbGci..."
   }
 }
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
-| `400` | Validation errors |
+| Status | Condition |
+|--------|-----------|
+| `400` | Validation errors (includes role = customer attempt) |
 | `409` | Email already exists |
 
 ---
@@ -366,24 +503,27 @@ Extends the Ticket schema with ownership fields:
 
 **Description:** Invalidate the current session token.
 
-**Access:** Protected (any authenticated staff role)
+**Access:** Protected (`admin`, `security`)
 
 **Request Body:** none
 
 **Business Rules:**
-- If using stateless JWT: this is a client-side operation (FE deletes the token). Return `200`.
-- If using a token blocklist: add the token `jti` to the blocklist.
+- Stateless JWT: return `200` immediately (client deletes the token).
+- Token blocklist (optional): add the token `jti` claim to a Redis/DB blocklist with TTL matching remaining token lifetime.
 
 **Success Response `200`:**
 ```json
-{ "success": true, "data": { "message": "Logged out successfully." } }
+{
+  "success": true,
+  "data": { "message": "Logged out successfully." }
+}
 ```
 
 ---
 
-## 6. Module 2 — Customer Authentication
+## 7. Module 2 — Customer Authentication
 
-> Dedicated routes for `customer` role only. Staff accounts are rejected.
+> Dedicated, fully isolated routes for `customer` role. Staff accounts are hard-blocked.
 
 ---
 
@@ -402,13 +542,14 @@ Extends the Ticket schema with ownership fields:
 ```
 
 **Validation:**
-- Same as staff login
+- `email` — required, valid email format
+- `password` — required, minimum 4 characters
 
 **Business Rules:**
-- Look up user by email where `status = active`
-- If user role is `admin` or `security` → return `403`: `"Staff accounts must use the Staff Portal to sign in."`
-- Verify password hash
-- Return customer user object and JWT token
+1. Look up user by `email` where `status = 'active'`
+2. If user `role` is `admin` or `security` → return `403`: `"Staff accounts must use the Staff Portal to sign in."`
+3. Verify password hash
+4. Generate and return JWT token
 
 **Success Response `200`:**
 ```json
@@ -429,17 +570,18 @@ Extends the Ticket schema with ownership fields:
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
-| `401` | Invalid credentials |
-| `403` | Staff account — use staff portal |
+| Status | Condition |
+|--------|-----------|
+| `400` | Missing or invalid fields |
+| `401` | Email not found or password mismatch |
 | `403` | Account is inactive |
+| `403` | Account belongs to `admin` or `security` role |
 
 ---
 
 ### POST `/api/customer/auth/register`
 
-**Description:** Register a new customer account. Role is always set to `customer` — not user-supplied.
+**Description:** Register a new customer account. Role is always forced to `customer` server-side — never user-supplied.
 
 **Access:** Public
 
@@ -455,18 +597,17 @@ Extends the Ticket schema with ownership fields:
 ```
 
 **Validation:**
-- `firstName`, `lastName` — required, string
-- `email` — required, valid email, unique across ALL users
+- `firstName`, `lastName` — required, non-empty string
+- `email` — required, valid email, unique across ALL users (staff + customers share the same users table)
 - `password` — required, minimum 8 characters, at least one number
 - `confirmPassword` — must match `password`
-- **No `role` field accepted** — always forced to `customer` on the server
+- **`role` field is ignored entirely** if submitted — always set server-side
 
 **Business Rules:**
-- Ignore any `role` field in the request body
-- Always set `role = "customer"` server-side
-- Hash password (bcrypt, cost factor ≥ 12)
-- New customer status defaults to `active`
-- After registration → redirect FE to `/customer/events`
+- Forcibly set `role = "customer"` regardless of any submitted `role` value
+- Hash password (bcrypt, cost ≥ 12)
+- Default `status = "active"`
+- Return user and JWT token
 
 **Success Response `201`:**
 ```json
@@ -474,7 +615,7 @@ Extends the Ticket schema with ownership fields:
   "success": true,
   "data": {
     "user": {
-      "id": "u10",
+      "id": "uuid",
       "name": "Jane Doe",
       "email": "jane@example.com",
       "role": "customer",
@@ -487,8 +628,8 @@ Extends the Ticket schema with ownership fields:
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
+| Status | Condition |
+|--------|-----------|
 | `400` | Validation errors |
 | `409` | Email already exists |
 
@@ -502,30 +643,75 @@ Extends the Ticket schema with ownership fields:
 
 **Success Response `200`:**
 ```json
-{ "success": true, "data": { "message": "Logged out successfully." } }
+{
+  "success": true,
+  "data": { "message": "Logged out successfully." }
+}
 ```
 
 ---
 
-## 7. Module 3 — Tickets (Admin)
+## 8. Module 3 — Session / Profile
 
-> Admin creates and manages tickets. Security staff can read tickets.
+> Shared endpoint available to all authenticated roles. Used by the FE to re-validate a persisted token after a page refresh.
+
+---
+
+### GET `/api/me`
+
+**Description:** Returns the authenticated user's profile from the current JWT token. Used on app load to confirm the session is still valid and the account is still active.
+
+**Access:** Protected (`admin`, `security`, `customer`)
+
+**Request Body:** none
+
+**Business Rules:**
+- Decode token, look up user by `id`
+- If user no longer exists or `status = "inactive"` → return `401`
+- Return current user object (no password)
+
+**Success Response `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "u1",
+    "name": "Alice Admin",
+    "email": "admin@svss.io",
+    "role": "admin",
+    "status": "active",
+    "createdAt": "2026-01-10"
+  }
+}
+```
+
+**Error Responses:**
+| Status | Condition |
+|--------|-----------|
+| `401` | Token missing, expired, or invalid |
+| `401` | User not found or deactivated since token was issued |
+
+---
+
+## 9. Module 4 — Tickets (Admin)
+
+> Admin creates and manages tickets. Security staff can read them for verification context.
 
 ---
 
 ### GET `/api/tickets`
 
-**Description:** Get all tickets. Supports search filtering.
+**Description:** Get all tickets. Supports search and status filtering.
 
 **Access:** Protected (`admin`, `security`)
 
 **Query Parameters:**
 | Param | Type | Description |
 |-------|------|-------------|
-| `search` | string | Filter by visitor name, ticket ID, or event name |
-| `status` | string | Filter by `valid`, `used`, or `invalid` |
-| `page` | number | Page number (default: 1) |
-| `pageSize` | number | Results per page (default: 20) |
+| `search` | string | Filter by visitor name, ticket ID, or event name (case-insensitive) |
+| `status` | string | `valid`, `used`, or `invalid` |
+| `page` | integer | Default: 1 |
+| `pageSize` | integer | Default: 20 |
 
 **Success Response `200`:**
 ```json
@@ -536,14 +722,19 @@ Extends the Ticket schema with ownership fields:
       "id": "TKT-001",
       "visitorName": "John Doe",
       "visitorEmail": "john@email.com",
+      "eventId": null,
       "event": "Rock Concert 2026",
       "eventDate": "2026-09-15",
+      "venue": "Grand Arena, Downtown",
       "zone": "VIP",
       "seat": "A12",
+      "price": null,
       "status": "valid",
       "usedAt": null,
       "qrData": "TKT-001|John Doe|Rock Concert 2026|VIP|A12",
       "photoUrl": "https://storage.example.com/photos/tkt001.jpg",
+      "ownerId": null,
+      "purchasedAt": null,
       "createdAt": "2026-06-01"
     }
   ],
@@ -555,7 +746,7 @@ Extends the Ticket schema with ownership fields:
 
 ### GET `/api/tickets/:id`
 
-**Description:** Get a single ticket by ID.
+**Description:** Get a single ticket by its ID (works for both `TKT-XXX` and `TKT-CXXX` IDs).
 
 **Access:** Protected (`admin`, `security`)
 
@@ -563,40 +754,59 @@ Extends the Ticket schema with ownership fields:
 ```json
 {
   "success": true,
-  "data": { ...ticket object... }
+  "data": {
+    "id": "TKT-001",
+    "visitorName": "John Doe",
+    "visitorEmail": "john@email.com",
+    "eventId": null,
+    "event": "Rock Concert 2026",
+    "eventDate": "2026-09-15",
+    "venue": "Grand Arena, Downtown",
+    "zone": "VIP",
+    "seat": "A12",
+    "price": null,
+    "status": "valid",
+    "usedAt": null,
+    "qrData": "TKT-001|John Doe|Rock Concert 2026|VIP|A12",
+    "photoUrl": "https://storage.example.com/photos/tkt001.jpg",
+    "ownerId": null,
+    "purchasedAt": null,
+    "createdAt": "2026-06-01"
+  }
 }
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
+| Status | Condition |
+|--------|-----------|
 | `404` | Ticket not found |
 
 ---
 
 ### POST `/api/tickets`
 
-**Description:** Create a new ticket with visitor photo. Admin only.
+**Description:** Admin creates a new ticket with visitor identity photo.
 
 **Access:** Protected (`admin`)
 
-**Request Body:** `multipart/form-data`
+**Content-Type:** `multipart/form-data`
 
+**Request Fields:**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `visitorName` | string | ✅ | Full name of visitor |
-| `visitorEmail` | string | ✅ | Valid email |
+| `visitorEmail` | string | ✅ | Valid email address |
 | `event` | string | ✅ | Event name |
 | `eventDate` | date | ✅ | Format: `YYYY-MM-DD` |
-| `zone` | string | ✅ | `VIP`, `Premium`, `General`, `Standard` |
-| `seat` | string | ✅ | Seat number e.g. `A12` |
-| `photo` | file | ✅ | JPG/PNG/WebP, max 5MB |
+| `zone` | string | ✅ | `VIP`, `Premium`, `General`, or `Standard` |
+| `seat` | string | ✅ | Seat identifier e.g. `A12` |
+| `photo` | file | ✅ | JPG, PNG, or WebP — max 5 MB |
 
 **Business Rules:**
-- Generate a sequential ticket ID: `TKT-XXX` (zero-padded, e.g. `TKT-006`)
-- Store photo to file storage (S3, local disk, etc.) and save URL to `photoUrl`
+- Generate sequential ticket ID using `TKT-` prefix: `TKT-001`, `TKT-002`, etc.
+- Store photo to file storage and save URL to `photoUrl`
 - Generate `qrData` string: `{ticketId}|{visitorName}|{event}|{zone}|{seat}`
-- Set `status = "valid"` and `usedAt = null`
+- Set `status = "valid"`, `usedAt = null`, `ownerId = null`, `purchasedAt = null`
 
 **Success Response `201`:**
 ```json
@@ -606,25 +816,30 @@ Extends the Ticket schema with ownership fields:
     "id": "TKT-006",
     "visitorName": "Sara Lee",
     "visitorEmail": "sara@email.com",
+    "eventId": null,
     "event": "Tech Summit 2026",
     "eventDate": "2026-11-20",
+    "venue": null,
     "zone": "Premium",
     "seat": "D22",
+    "price": null,
     "status": "valid",
     "usedAt": null,
     "qrData": "TKT-006|Sara Lee|Tech Summit 2026|Premium|D22",
     "photoUrl": "https://storage.example.com/photos/tkt006.jpg",
+    "ownerId": null,
+    "purchasedAt": null,
     "createdAt": "2026-07-12"
   }
 }
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
-| `400` | Validation errors / invalid file type |
-| `403` | Admin role required |
-| `413` | Photo exceeds 5MB |
+| Status | Condition |
+|--------|-----------|
+| `400` | Validation errors or unsupported file type |
+| `403` | `admin` role required |
+| `413` | Photo file exceeds 5 MB |
 
 ---
 
@@ -634,45 +849,72 @@ Extends the Ticket schema with ownership fields:
 
 **Access:** Protected (`admin`)
 
-**Request Body:** `application/json` (send only fields to update)
+**Content-Type:** `application/json`
+
+**Request Body** (send only fields to update):
 ```json
 {
   "status": "invalid",
   "zone": "General",
-  "seat": "B10"
+  "seat": "B10",
+  "event": "Rock Concert 2026",
+  "eventDate": "2026-09-15",
+  "visitorName": "John Doe",
+  "visitorEmail": "john@email.com"
 }
 ```
 
+**Updatable Fields:** `visitorName`, `visitorEmail`, `event`, `eventDate`, `zone`, `seat`, `status`
+
 **Business Rules:**
-- Only `admin` may update tickets
-- If `status` is updated to `used`, set `usedAt` to current timestamp
-- If `status` is updated away from `used`, clear `usedAt`
+- If `status` changes to `"used"` → set `usedAt = NOW()`
+- If `status` changes away from `"used"` → set `usedAt = null`
+- `qrData` is **not** recalculated on update — if the ticket's core fields change the QR remains the same to avoid breaking printed/distributed tickets
 
 **Success Response `200`:**
 ```json
 {
   "success": true,
-  "data": { ...updated ticket object... }
+  "data": {
+    "id": "TKT-001",
+    "visitorName": "John Doe",
+    "visitorEmail": "john@email.com",
+    "eventId": null,
+    "event": "Rock Concert 2026",
+    "eventDate": "2026-09-15",
+    "venue": null,
+    "zone": "General",
+    "seat": "B10",
+    "price": null,
+    "status": "invalid",
+    "usedAt": null,
+    "qrData": "TKT-001|John Doe|Rock Concert 2026|VIP|A12",
+    "photoUrl": "https://storage.example.com/photos/tkt001.jpg",
+    "ownerId": null,
+    "purchasedAt": null,
+    "createdAt": "2026-06-01"
+  }
 }
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
+| Status | Condition |
+|--------|-----------|
+| `400` | Invalid status value |
+| `403` | `admin` role required |
 | `404` | Ticket not found |
-| `403` | Admin role required |
 
 ---
 
-## 8. Module 4 — QR Verification (Security)
+## 10. Module 5 — QR Verification (Security)
 
-> Core security workflow. Security staff scan a QR code and process entry decisions.
+> Core security workflow. Security staff scan a QR code and make an entry decision.
 
 ---
 
 ### POST `/api/tickets/verify`
 
-**Description:** Verify a scanned QR code and return ticket information. Does NOT mark the ticket as used.
+**Description:** Verify a scanned QR payload and return ticket data. Does **not** change ticket status.
 
 **Access:** Protected (`security`)
 
@@ -682,23 +924,28 @@ Extends the Ticket schema with ownership fields:
   "qrData": "TKT-001|John Doe|Rock Concert 2026|VIP|A12"
 }
 ```
-
-**Alternative** — also accept ticket ID directly:
+Also accepted — ticket ID only:
 ```json
 {
   "qrData": "TKT-001"
 }
 ```
 
-**Business Rules:**
-- Search tickets where `qrData = value` OR `id = value`
-- If not found → `valid: false` with reason
-- If `status = "used"` → `valid: false` with reason and ticket data
-- If `status = "invalid"` → `valid: false` with reason and ticket data
-- If `status = "valid"` → `valid: true` with full ticket data
-- **Do NOT change `status` here** — that only happens on approve/reject
+**Validation:**
+- `qrData` — required, non-empty string
 
-**Success Response `200`:**
+**Business Rules:**
+1. Search `tickets` table where `qr_data = :qrData` **OR** `id = :qrData`
+2. Both admin-created (`TKT-XXX`) and customer-purchased (`TKT-CXXX`) tickets exist in the same table — no special handling needed
+3. If not found → return `{ valid: false, reason: "Ticket not found in system." }`
+4. If `status = "used"` → return `{ valid: false, reason: "Ticket has already been used." }`
+5. If `status = "invalid"` → return `{ valid: false, reason: "Ticket is marked invalid." }`
+6. If `status = "valid"` → return `{ valid: true }` with full ticket object including `photoUrl`
+7. **Do NOT modify any data** — status change only happens via approve/reject
+
+> **Important:** This endpoint always returns HTTP `200`. Use HTTP error codes only for auth/server failures, not for business-logic validation outcomes.
+
+**Response — Valid ticket `200`:**
 ```json
 {
   "success": true,
@@ -716,25 +963,26 @@ Extends the Ticket schema with ownership fields:
       "status": "valid",
       "photoUrl": "https://storage.example.com/photos/tkt001.jpg",
       "qrData": "TKT-001|John Doe|Rock Concert 2026|VIP|A12",
+      "usedAt": null,
       "createdAt": "2026-06-01"
     }
   }
 }
 ```
 
-**Invalid ticket example `200`:**
+**Response — Already used `200`:**
 ```json
 {
   "success": true,
   "data": {
     "valid": false,
     "reason": "Ticket has already been used.",
-    "ticket": { ...ticket object... }
+    "ticket": { "id": "TKT-002", "status": "used", "usedAt": "2026-06-20T18:32:00.000Z", "..." : "..." }
   }
 }
 ```
 
-**Not found example `200`:**
+**Response — Not found `200`:**
 ```json
 {
   "success": true,
@@ -746,22 +994,28 @@ Extends the Ticket schema with ownership fields:
 }
 ```
 
-> **Note:** The FE expects a `200` even for invalid tickets. Use HTTP error codes only for actual server/auth failures.
+**Error Responses (non-business):**
+| Status | Condition |
+|--------|-----------|
+| `400` | `qrData` field missing |
+| `401` | Unauthenticated |
+| `403` | Not a `security` role |
 
 ---
 
 ### POST `/api/tickets/:id/approve`
 
-**Description:** Approve entry for a ticket. Marks the ticket as used.
+**Description:** Approve entry for a verified ticket. Marks the ticket as used and records the scan.
 
 **Access:** Protected (`security`)
 
 **Request Body:** none
 
 **Business Rules:**
-- Find ticket by `id`
-- Set `status = "used"` and `usedAt = currentTimestamp`
-- Create a **Scan Log** entry: `result = "approved"`, `scannedBy = currentUser.id`
+1. Find ticket by `id`
+2. If `status` is already `"used"` → return `409`
+3. Set `status = "used"`, `usedAt = NOW()`
+4. Insert a row into `scan_logs`: `result = "approved"`, `scannedBy = currentUser.id`, `visitorName` snapshot
 
 **Success Response `200`:**
 ```json
@@ -776,8 +1030,8 @@ Extends the Ticket schema with ownership fields:
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
+| Status | Condition |
+|--------|-----------|
 | `404` | Ticket not found |
 | `409` | Ticket already used |
 
@@ -785,16 +1039,16 @@ Extends the Ticket schema with ownership fields:
 
 ### POST `/api/tickets/:id/reject`
 
-**Description:** Reject entry for a ticket. Ticket status remains unchanged.
+**Description:** Reject entry for a ticket. Ticket status is **not** changed. Records the rejection in the scan log.
 
 **Access:** Protected (`security`)
 
 **Request Body:** none
 
 **Business Rules:**
-- Find ticket by `id`
-- Do NOT change ticket status
-- Create a **Scan Log** entry: `result = "rejected"`, `scannedBy = currentUser.id`
+1. Find ticket by `id`
+2. Do **NOT** modify `status` or `usedAt`
+3. Insert a row into `scan_logs`: `result = "rejected"`, `scannedBy = currentUser.id`
 
 **Success Response `200`:**
 ```json
@@ -807,28 +1061,33 @@ Extends the Ticket schema with ownership fields:
 }
 ```
 
+**Error Responses:**
+| Status | Condition |
+|--------|-----------|
+| `404` | Ticket not found |
+
 ---
 
-## 9. Module 5 — Incidents
+## 11. Module 6 — Incidents
 
 ---
 
 ### GET `/api/incidents`
 
-**Description:** Get all incident reports. Supports filtering.
+**Description:** Get all incident reports with filtering support.
 
 **Access:** Protected (`admin`, `security`)
 
 **Query Parameters:**
 | Param | Type | Description |
 |-------|------|-------------|
-| `type` | string | Filter by `duplicate`, `suspicious`, `invalid`, `other` |
-| `status` | string | Filter by `open`, `investigating`, `resolved` |
-| `search` | string | Search in description, ticketId, reportedBy |
-| `dateFrom` | date | Filter incidents from this date (`YYYY-MM-DD`) |
-| `dateTo` | date | Filter incidents to this date (`YYYY-MM-DD`) |
-| `page` | number | Page number (default: 1) |
-| `pageSize` | number | Default: 20 |
+| `type` | string | `duplicate`, `suspicious`, `invalid`, or `other` |
+| `status` | string | `open`, `investigating`, or `resolved` |
+| `search` | string | Search in `description`, `ticketId`, `reportedBy` (case-insensitive) |
+| `dateFrom` | date | ISO date `YYYY-MM-DD` — filter `createdAt >=` |
+| `dateTo` | date | ISO date `YYYY-MM-DD` — filter `createdAt <=` |
+| `page` | integer | Default: 1 |
+| `pageSize` | integer | Default: 20 |
 
 **Success Response `200`:**
 ```json
@@ -841,11 +1100,12 @@ Extends the Ticket schema with ownership fields:
       "ticketId": "TKT-002",
       "description": "Ticket scanned a second time at Gate 3.",
       "reportedBy": "Bob Security",
+      "reportedById": "u2",
       "status": "open",
       "createdAt": "2026-06-20T18:35:00.000Z"
     }
   ],
-  "pagination": { ... }
+  "pagination": { "page": 1, "pageSize": 20, "total": 3, "totalPages": 1 }
 }
 ```
 
@@ -853,7 +1113,7 @@ Extends the Ticket schema with ownership fields:
 
 ### GET `/api/incidents/:id`
 
-**Description:** Get a single incident by ID.
+**Description:** Get a single incident report.
 
 **Access:** Protected (`admin`, `security`)
 
@@ -861,13 +1121,22 @@ Extends the Ticket schema with ownership fields:
 ```json
 {
   "success": true,
-  "data": { ...incident object... }
+  "data": {
+    "id": "INC-002",
+    "type": "suspicious",
+    "ticketId": "TKT-003",
+    "description": "Visitor appearance did not match registered photo.",
+    "reportedBy": "Carol Guard",
+    "reportedById": "u3",
+    "status": "investigating",
+    "createdAt": "2026-06-21T09:12:00.000Z"
+  }
 }
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
+| Status | Condition |
+|--------|-----------|
 | `404` | Incident not found |
 
 ---
@@ -889,13 +1158,14 @@ Extends the Ticket schema with ownership fields:
 
 **Validation:**
 - `type` — required, one of: `duplicate`, `suspicious`, `invalid`, `other`
-- `ticketId` — required, string (must reference existing ticket)
+- `ticketId` — **optional** string. If provided, it should reference an existing ticket ID but this is a soft check — the UI allows freeform entry or no ticket at all (incident from scanner failure). Do not return a 404 if ticket does not exist; log a warning instead.
 - `description` — required, minimum 10 characters
 
 **Business Rules:**
 - Set `status = "open"` automatically
-- Set `reportedBy` from the authenticated user's name
-- Generate sequential ID: `INC-XXX`
+- Set `reportedBy` = authenticated user's `name` (denormalized snapshot)
+- Set `reportedById` = authenticated user's `id` (FK)
+- Generate sequential incident ID: `INC-001`, `INC-002`, etc.
 
 **Success Response `201`:**
 ```json
@@ -907,6 +1177,7 @@ Extends the Ticket schema with ownership fields:
     "ticketId": "TKT-003",
     "description": "Visitor appearance did not match registered photo.",
     "reportedBy": "Carol Guard",
+    "reportedById": "u3",
     "status": "open",
     "createdAt": "2026-07-12T10:00:00.000Z"
   }
@@ -914,10 +1185,11 @@ Extends the Ticket schema with ownership fields:
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
-| `400` | Validation errors |
-| `404` | Referenced ticketId not found |
+| Status | Condition |
+|--------|-----------|
+| `400` | `type` missing or invalid |
+| `400` | `description` too short |
+| `403` | `security` role required |
 
 ---
 
@@ -935,35 +1207,52 @@ Extends the Ticket schema with ownership fields:
 ```
 
 **Validation:**
-- `status` — required, one of: `open`, `investigating`, `resolved`
+- `status` — required, must be one of: `open`, `investigating`, `resolved`
 
 **Success Response `200`:**
 ```json
 {
   "success": true,
-  "data": { ...updated incident object... }
+  "data": {
+    "id": "INC-002",
+    "type": "suspicious",
+    "ticketId": "TKT-003",
+    "description": "Visitor appearance did not match registered photo.",
+    "reportedBy": "Carol Guard",
+    "reportedById": "u3",
+    "status": "resolved",
+    "createdAt": "2026-06-21T09:12:00.000Z"
+  }
 }
 ```
 
+**Error Responses:**
+| Status | Condition |
+|--------|-----------|
+| `400` | Invalid status value |
+| `403` | `admin` role required |
+| `404` | Incident not found |
+
 ---
 
-## 10. Module 6 — Users (Admin)
+## 12. Module 7 — Users (Admin)
 
 ---
 
 ### GET `/api/users`
 
-**Description:** Get all staff users (admin and security). Customers are excluded from this list.
+**Description:** Get all users. Returns staff **and** customers — the FE user management page shows all registered users so admins can see the full picture. Filter by `role` to restrict to staff-only.
 
 **Access:** Protected (`admin`)
 
 **Query Parameters:**
 | Param | Type | Description |
 |-------|------|-------------|
-| `role` | string | Filter by `admin` or `security` |
+| `role` | string | Filter by `admin`, `security`, or `customer` |
 | `status` | string | Filter by `active` or `inactive` |
-| `page` | number | Default: 1 |
-| `pageSize` | number | Default: 20 |
+| `search` | string | Search by name or email |
+| `page` | integer | Default: 1 |
+| `pageSize` | integer | Default: 20 |
 
 **Success Response `200`:**
 ```json
@@ -977,9 +1266,17 @@ Extends the Ticket schema with ownership fields:
       "role": "admin",
       "status": "active",
       "createdAt": "2026-01-10"
+    },
+    {
+      "id": "u5",
+      "name": "Eva Customer",
+      "email": "eva@svss.io",
+      "role": "customer",
+      "status": "active",
+      "createdAt": "2026-03-01"
     }
   ],
-  "pagination": { ... }
+  "pagination": { "page": 1, "pageSize": 20, "total": 5, "totalPages": 1 }
 }
 ```
 
@@ -987,7 +1284,7 @@ Extends the Ticket schema with ownership fields:
 
 ### POST `/api/users`
 
-**Description:** Admin creates a new staff user directly (without self-registration flow).
+**Description:** Admin directly creates a new staff user (bypasses self-registration).
 
 **Access:** Protected (`admin`)
 
@@ -997,33 +1294,46 @@ Extends the Ticket schema with ownership fields:
   "firstName": "New",
   "lastName": "Guard",
   "email": "newguard@svss.io",
-  "role": "security",
-  "password": "TempPass123"
+  "role": "security"
 }
 ```
 
+> **Note:** No `password` field is sent from the FE `createUserApi`. The backend should either auto-generate a temporary password and email it to the user, or accept a `password` field. Recommended: generate a random temp password and include it in the response so the admin can share it.
+
 **Validation:**
-- `firstName`, `lastName` — required, string
+- `firstName`, `lastName` — required, non-empty string
 - `email` — required, valid email, unique
-- `role` — required, `admin` or `security` only
-- `password` — required, minimum 8 characters
+- `role` — required, must be `admin` or `security`
 
 **Business Rules:**
-- Always sets `status = "active"`
-- Hashes password before storing
+- Generate a secure random temporary password
+- Hash and store it
+- Set `status = "active"`
+- Return the user and the **plaintext temporary password** (one-time display) or send via email
 
 **Success Response `201`:**
 ```json
 {
   "success": true,
-  "data": { ...user object (no password)... }
+  "data": {
+    "user": {
+      "id": "u7",
+      "name": "New Guard",
+      "email": "newguard@svss.io",
+      "role": "security",
+      "status": "active",
+      "createdAt": "2026-07-12"
+    },
+    "temporaryPassword": "Xk9#mP2q"
+  }
 }
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
+| Status | Condition |
+|--------|-----------|
 | `400` | Validation errors |
+| `403` | `admin` role required |
 | `409` | Email already exists |
 
 ---
@@ -1037,9 +1347,10 @@ Extends the Ticket schema with ownership fields:
 **Request Body:** none
 
 **Business Rules:**
-- If current `status = "active"` → set to `"inactive"`
-- If current `status = "inactive"` → set to `"active"`
-- Admin cannot deactivate their own account
+- `active` → `inactive`
+- `inactive` → `active`
+- Admin cannot deactivate their own account (compare `:id` with `currentUser.id`)
+- Deactivated users are rejected at login and on every authenticated request
 
 **Success Response `200`:**
 ```json
@@ -1057,22 +1368,37 @@ Extends the Ticket schema with ownership fields:
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
-| `404` | User not found |
+| Status | Condition |
+|--------|-----------|
+| `403` | `admin` role required |
 | `403` | Cannot deactivate your own account |
+| `404` | User not found |
 
 ---
 
-## 11. Module 7 — Dashboard & Reports (Admin)
+## 13. Module 8 — Dashboard & Reports
 
 ---
 
 ### GET `/api/dashboard/stats`
 
-**Description:** Returns aggregate statistics for the admin and security dashboards.
+**Description:** Aggregate statistics for admin and security dashboards.
 
 **Access:** Protected (`admin`, `security`)
+
+**Implementation Notes:**
+| Field | SQL / Logic |
+|-------|-------------|
+| `totalTickets` | `SELECT COUNT(*) FROM tickets` |
+| `usedTickets` | `... WHERE status = 'used'` |
+| `validTickets` | `... WHERE status = 'valid'` |
+| `invalidTickets` | `... WHERE status = 'invalid'` |
+| `totalEntries` | `SELECT COUNT(*) FROM scan_logs` |
+| `approvedEntries` | `... WHERE result = 'approved'` |
+| `rejectedEntries` | `... WHERE result = 'rejected'` |
+| `totalIncidents` | `SELECT COUNT(*) FROM incidents` |
+| `openIncidents` | `... WHERE status = 'open'` |
+| `todayScans` | `... WHERE DATE(created_at) = CURRENT_DATE` |
 
 **Success Response `200`:**
 ```json
@@ -1093,30 +1419,18 @@ Extends the Ticket schema with ownership fields:
 }
 ```
 
-**Implementation Notes:**
-- `totalTickets` — COUNT of all tickets (admin + customer-purchased)
-- `usedTickets` — COUNT where `status = "used"`
-- `validTickets` — COUNT where `status = "valid"`
-- `invalidTickets` — COUNT where `status = "invalid"`
-- `totalEntries` — COUNT of approve + reject scan log entries
-- `approvedEntries` — COUNT of scan logs where `result = "approved"`
-- `rejectedEntries` — COUNT of scan logs where `result = "rejected"`
-- `totalIncidents` — COUNT of all incidents
-- `openIncidents` — COUNT of incidents where `status = "open"`
-- `todayScans` — COUNT of scan logs created today (UTC date match)
-
 ---
 
 ### GET `/api/dashboard/scans`
 
-**Description:** Returns the most recent scan log entries.
+**Description:** Most recent scan log entries for the live entry feed on dashboards.
 
 **Access:** Protected (`admin`, `security`)
 
 **Query Parameters:**
-| Param | Type | Description |
-|-------|------|-------------|
-| `limit` | number | Max entries to return (default: 10) |
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `limit` | integer | 10 | Max number of entries to return |
 
 **Success Response `200`:**
 ```json
@@ -1124,12 +1438,20 @@ Extends the Ticket schema with ownership fields:
   "success": true,
   "data": [
     {
-      "id": "s1",
+      "id": "uuid",
       "ticketId": "TKT-001",
       "visitorName": "John Doe",
       "result": "approved",
       "scannedBy": "u2",
       "time": "2026-06-23T08:10:00.000Z"
+    },
+    {
+      "id": "uuid",
+      "ticketId": "TKT-002",
+      "visitorName": "Jane Smith",
+      "result": "rejected",
+      "scannedBy": "u2",
+      "time": "2026-06-23T08:22:00.000Z"
     }
   ]
 }
@@ -1139,20 +1461,20 @@ Extends the Ticket schema with ownership fields:
 
 ### GET `/api/reports/tickets`
 
-**Description:** Full ticket report data for the Reports page.
+**Description:** Paginated ticket data for the admin Reports page with breakdown summary.
 
 **Access:** Protected (`admin`)
 
 **Query Parameters:**
 | Param | Type | Description |
 |-------|------|-------------|
-| `dateFrom` | date | Start date `YYYY-MM-DD` |
-| `dateTo` | date | End date `YYYY-MM-DD` |
-| `status` | string | Filter by ticket status |
-| `event` | string | Filter by event name |
+| `dateFrom` | date | `YYYY-MM-DD` — filter `createdAt >=` |
+| `dateTo` | date | `YYYY-MM-DD` — filter `createdAt <=` |
+| `status` | string | `valid`, `used`, or `invalid` |
+| `event` | string | Filter by event name (partial match) |
 | `zone` | string | Filter by zone |
-| `page` | number | Default: 1 |
-| `pageSize` | number | Default: 50 |
+| `page` | integer | Default: 1 |
+| `pageSize` | integer | Default: 50 |
 
 **Success Response `200`:**
 ```json
@@ -1166,7 +1488,7 @@ Extends the Ticket schema with ownership fields:
       "invalidTickets": 5
     },
     "tickets": [ ...array of ticket objects... ],
-    "pagination": { ... }
+    "pagination": { "page": 1, "pageSize": 50, "total": 100, "totalPages": 2 }
   }
 }
 ```
@@ -1175,17 +1497,17 @@ Extends the Ticket schema with ownership fields:
 
 ### GET `/api/reports/incidents`
 
-**Description:** Incident report data for the Reports page.
+**Description:** Incident report data with summary breakdown.
 
 **Access:** Protected (`admin`)
 
 **Query Parameters:**
 | Param | Type | Description |
 |-------|------|-------------|
-| `dateFrom` | date | Start date |
-| `dateTo` | date | End date |
-| `type` | string | Incident type |
-| `status` | string | Incident status |
+| `dateFrom` | date | `YYYY-MM-DD` |
+| `dateTo` | date | `YYYY-MM-DD` |
+| `type` | string | `duplicate`, `suspicious`, `invalid`, `other` |
+| `status` | string | `open`, `investigating`, `resolved` |
 
 **Success Response `200`:**
 ```json
@@ -1207,16 +1529,18 @@ Extends the Ticket schema with ownership fields:
 
 ### GET `/api/reports/entries`
 
-**Description:** Entry (scan log) report for the Reports page.
+**Description:** Scan log / entry report for the admin Reports page.
 
 **Access:** Protected (`admin`)
 
 **Query Parameters:**
 | Param | Type | Description |
 |-------|------|-------------|
-| `dateFrom` | date | Start date |
-| `dateTo` | date | End date |
+| `dateFrom` | date | `YYYY-MM-DD` |
+| `dateTo` | date | `YYYY-MM-DD` |
 | `result` | string | `approved` or `rejected` |
+| `page` | integer | Default: 1 |
+| `pageSize` | integer | Default: 50 |
 
 **Success Response `200`:**
 ```json
@@ -1228,32 +1552,46 @@ Extends the Ticket schema with ownership fields:
       "approved": 305,
       "rejected": 13
     },
-    "entries": [ ...array of scan log objects... ]
+    "entries": [
+      {
+        "id": "uuid",
+        "ticketId": "TKT-001",
+        "visitorName": "John Doe",
+        "result": "approved",
+        "scannedBy": "u2",
+        "time": "2026-06-23T08:10:00.000Z"
+      }
+    ],
+    "pagination": { ... }
   }
 }
 ```
 
 ---
 
-## 12. Module 8 — Events (Customer)
+## 14. Module 9 — Events (Customer)
 
-> Events are browsable by authenticated customers only.
+> Events are created and managed by admins (via direct DB seeding or a future admin UI). Currently read-only from the customer portal.
 
 ---
 
 ### GET `/api/events`
 
-**Description:** List all available events with search and category filtering.
+**Description:** List all available upcoming events with search and category filtering.
 
 **Access:** Protected (`customer`)
 
 **Query Parameters:**
 | Param | Type | Description |
 |-------|------|-------------|
-| `search` | string | Search by event name, venue, or category |
-| `category` | string | Filter by `Concert`, `Expo`, `Conference`, `Festival` |
-| `page` | number | Default: 1 |
-| `pageSize` | number | Default: 12 |
+| `search` | string | Partial match on event name, venue, or category |
+| `category` | string | `Concert`, `Expo`, `Conference`, or `Festival` |
+| `page` | integer | Default: 1 |
+| `pageSize` | integer | Default: 12 |
+
+**Business Rules:**
+- Return only events where `date >= TODAY` (upcoming events)
+- Include live `available` counts from `event_zones` table
 
 **Success Response `200`:**
 ```json
@@ -1270,14 +1608,14 @@ Extends the Ticket schema with ownership fields:
       "image": "https://storage.example.com/events/evt001.jpg",
       "description": "An electrifying night of rock music...",
       "zones": [
-        { "name": "VIP",      "price": 250, "available": 20 },
+        { "name": "VIP",      "price": 250, "available": 19 },
         { "name": "Premium",  "price": 150, "available": 45 },
         { "name": "General",  "price": 80,  "available": 120 },
         { "name": "Standard", "price": 50,  "available": 200 }
       ]
     }
   ],
-  "pagination": { ... }
+  "pagination": { "page": 1, "pageSize": 12, "total": 4, "totalPages": 1 }
 }
 ```
 
@@ -1285,7 +1623,7 @@ Extends the Ticket schema with ownership fields:
 
 ### GET `/api/events/:id`
 
-**Description:** Get a single event with full zone details.
+**Description:** Get a single event with full zone detail and live availability.
 
 **Access:** Protected (`customer`)
 
@@ -1293,18 +1631,33 @@ Extends the Ticket schema with ownership fields:
 ```json
 {
   "success": true,
-  "data": { ...full event object... }
+  "data": {
+    "id": "EVT-001",
+    "name": "Rock Concert 2026",
+    "venue": "Grand Arena, Downtown",
+    "date": "2026-09-15",
+    "time": "19:00",
+    "category": "Concert",
+    "image": "https://storage.example.com/events/evt001.jpg",
+    "description": "An electrifying night of rock music...",
+    "zones": [
+      { "name": "VIP",      "price": 250, "available": 19 },
+      { "name": "Premium",  "price": 150, "available": 45 },
+      { "name": "General",  "price": 80,  "available": 120 },
+      { "name": "Standard", "price": 50,  "available": 200 }
+    ]
+  }
 }
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
+| Status | Condition |
+|--------|-----------|
 | `404` | Event not found |
 
 ---
 
-## 13. Module 9 — Customer Tickets
+## 15. Module 10 — Customer Tickets
 
 ---
 
@@ -1315,8 +1668,15 @@ Extends the Ticket schema with ownership fields:
 **Access:** Protected (`customer`)
 
 **Business Rules:**
-- Only return tickets where `ownerId = currentUser.id`
-- Return newest first (sort by `purchasedAt DESC`)
+- Only return tickets where `owner_id = currentUser.id`
+- Sort by `purchased_at DESC` (newest first)
+
+**Query Parameters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| `status` | string | Filter by `valid`, `used`, or `invalid` |
+| `page` | integer | Default: 1 |
+| `pageSize` | integer | Default: 20 |
 
 **Success Response `200`:**
 ```json
@@ -1325,9 +1685,8 @@ Extends the Ticket schema with ownership fields:
   "data": [
     {
       "id": "TKT-C001",
-      "ownerId": "u5",
-      "ownerName": "Eva Customer",
-      "ownerEmail": "eva@svss.io",
+      "visitorName": "Eva Customer",
+      "visitorEmail": "eva@svss.io",
       "eventId": "EVT-001",
       "event": "Rock Concert 2026",
       "eventDate": "2026-09-15",
@@ -1339,45 +1698,93 @@ Extends the Ticket schema with ownership fields:
       "usedAt": null,
       "qrData": "TKT-C001|Eva Customer|Rock Concert 2026|General|AUTO-G45",
       "photoUrl": "https://storage.example.com/photos/c001.jpg",
+      "ownerId": "u5",
       "purchasedAt": "2026-07-01T10:30:00.000Z",
-      "visitorName": "Eva Customer",
-      "visitorEmail": "eva@svss.io",
       "createdAt": "2026-07-01"
     }
-  ]
+  ],
+  "pagination": { "page": 1, "pageSize": 20, "total": 1, "totalPages": 1 }
 }
 ```
 
 ---
 
-### POST `/api/customer/tickets/purchase`
+### GET `/api/customer/tickets/:id`
 
-**Description:** Purchase a ticket for an event. Auto-assigns a seat.
+**Description:** Get a single customer ticket by ID. Used to display the QR code modal.
 
 **Access:** Protected (`customer`)
 
-**Request Body:** `multipart/form-data`
+**Business Rules:**
+- Only return the ticket if `owner_id = currentUser.id`
+- Return `403` if the ticket exists but belongs to a different customer
 
+**Success Response `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "TKT-C001",
+    "visitorName": "Eva Customer",
+    "visitorEmail": "eva@svss.io",
+    "eventId": "EVT-001",
+    "event": "Rock Concert 2026",
+    "eventDate": "2026-09-15",
+    "venue": "Grand Arena, Downtown",
+    "zone": "General",
+    "seat": "AUTO-G45",
+    "price": 80,
+    "status": "valid",
+    "usedAt": null,
+    "qrData": "TKT-C001|Eva Customer|Rock Concert 2026|General|AUTO-G45",
+    "photoUrl": "https://storage.example.com/photos/c001.jpg",
+    "ownerId": "u5",
+    "purchasedAt": "2026-07-01T10:30:00.000Z",
+    "createdAt": "2026-07-01"
+  }
+}
+```
+
+**Error Responses:**
+| Status | Condition |
+|--------|-----------|
+| `403` | Ticket belongs to a different customer |
+| `404` | Ticket not found |
+
+---
+
+### POST `/api/customer/tickets/purchase`
+
+**Description:** Purchase a ticket for an event. Auto-assigns a seat within the chosen zone.
+
+**Access:** Protected (`customer`)
+
+**Content-Type:** `multipart/form-data`
+
+**Request Fields:**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `eventId` | string | ✅ | Target event ID |
-| `zone` | string | ✅ | Zone name from event.zones |
-| `visitorName` | string | ✅ | Customer full name for the ticket |
-| `visitorEmail` | string | ✅ | Customer email |
-| `photo` | file | ✅ | Identity photo — JPG/PNG/WebP max 5MB |
+| `zone` | string | ✅ | Zone name from `event.zones` |
+| `visitorName` | string | ✅ | Attendee full name (pre-filled from user profile) |
+| `visitorEmail` | string | ✅ | Attendee email |
+| `photo` | file | ✅ | Identity photo for gate verification — JPG/PNG/WebP, max 5 MB |
 
-**Business Rules:**
-1. Validate event exists
-2. Validate zone exists within the event
-3. Check `zone.available > 0` — if not, return `409` sold out
-4. Auto-generate seat: `AUTO-{ZoneInitial}{RandomNumber}{RandomLetter}` e.g. `AUTO-G45H`
-5. Generate ticket ID with prefix `TKT-C` + sequential number: `TKT-C002`
+**Business Rules (execute in a DB transaction):**
+1. Verify event exists
+2. Verify zone exists within the event
+3. **With row-level lock** (`SELECT ... FOR UPDATE`): check `event_zones.available > 0`
+   - If `available = 0` → rollback, return `409`: `"This zone is sold out."`
+4. Auto-generate seat: `AUTO-{ZoneInitial}{1–200}{A–H}` e.g. `AUTO-G45H`
+5. Generate ticket ID with `TKT-C` prefix + zero-padded sequential number: `TKT-C002`
 6. Generate `qrData`: `{ticketId}|{visitorName}|{eventName}|{zone}|{seat}`
-7. Store photo, save URL to `photoUrl`
-8. Set `ownerId = currentUser.id`
-9. Set `status = "valid"` and `purchasedAt = currentTimestamp`
-10. **Decrement `zone.available` by 1** in the events table
-11. **Also insert into the shared tickets table** so security can verify this QR at the gate
+7. Store photo file, save `photoUrl`
+8. Insert row into `tickets` table with `owner_id = currentUser.id`, `purchased_at = NOW()`
+9. **Decrement `event_zones.available` by 1** within the same transaction
+10. Commit transaction
+11. The new ticket is now queryable by security staff via `/api/tickets/verify` since it lives in the shared `tickets` table
+
+> **Concurrency Note:** Use a database-level transaction with `SELECT FOR UPDATE` or an atomic `UPDATE event_zones SET available = available - 1 WHERE id = :id AND available > 0` with check on affected rows. Do not rely on application-level checks alone — two simultaneous purchases could both pass the availability check before either decrements the counter.
 
 **Success Response `201`:**
 ```json
@@ -1385,9 +1792,8 @@ Extends the Ticket schema with ownership fields:
   "success": true,
   "data": {
     "id": "TKT-C002",
-    "ownerId": "u5",
-    "ownerName": "Eva Customer",
-    "ownerEmail": "eva@svss.io",
+    "visitorName": "Eva Customer",
+    "visitorEmail": "eva@svss.io",
     "eventId": "EVT-001",
     "event": "Rock Concert 2026",
     "eventDate": "2026-09-15",
@@ -1399,44 +1805,44 @@ Extends the Ticket schema with ownership fields:
     "usedAt": null,
     "qrData": "TKT-C002|Eva Customer|Rock Concert 2026|VIP|AUTO-V112C",
     "photoUrl": "https://storage.example.com/photos/c002.jpg",
+    "ownerId": "u5",
     "purchasedAt": "2026-07-12T14:30:00.000Z",
-    "visitorName": "Eva Customer",
-    "visitorEmail": "eva@svss.io",
     "createdAt": "2026-07-12"
   }
 }
 ```
 
 **Error Responses:**
-| Status | Message |
-|--------|---------|
-| `400` | Validation errors / invalid file |
+| Status | Condition |
+|--------|-----------|
+| `400` | Missing required fields or invalid file type |
+| `403` | `customer` role required |
 | `404` | Event not found |
 | `404` | Zone not found in this event |
-| `409` | This zone is sold out |
-| `413` | Photo exceeds 5MB |
+| `409` | Zone is sold out |
+| `413` | Photo exceeds 5 MB |
 
 ---
 
-## 14. Error Handling
+## 16. Error Handling
 
-### Standard HTTP Status Codes
+### HTTP Status Code Reference
 
-| Code | Meaning | When to use |
+| Code | Meaning | When to Use |
 |------|---------|-------------|
-| `200` | OK | Successful GET, PUT, PATCH, POST for verify/approve/reject |
-| `201` | Created | Successful POST that creates a resource |
-| `400` | Bad Request | Validation errors, malformed request body |
-| `401` | Unauthorized | No token or invalid/expired token |
-| `403` | Forbidden | Valid token but insufficient role permission |
-| `404` | Not Found | Resource does not exist |
-| `409` | Conflict | Duplicate email, sold-out zone, already-used ticket |
-| `413` | Payload Too Large | File upload exceeds size limit |
-| `422` | Unprocessable Entity | Semantic validation failure |
-| `500` | Internal Server Error | Unexpected server-side failure |
+| `200` | OK | Successful GET / PUT / PATCH; also for verify endpoint even when ticket is invalid |
+| `201` | Created | Successful POST that creates a new resource |
+| `400` | Bad Request | Missing fields, failed validation, unsupported file type |
+| `401` | Unauthorized | No token, expired token, invalid signature, or deactivated user |
+| `403` | Forbidden | Valid token but wrong role, or cross-portal login attempt |
+| `404` | Not Found | Requested resource does not exist |
+| `409` | Conflict | Duplicate email, already-used ticket, sold-out zone |
+| `413` | Payload Too Large | Uploaded file exceeds size limit |
+| `422` | Unprocessable Entity | Semantically invalid input (e.g. `dateTo` before `dateFrom`) |
+| `429` | Too Many Requests | Rate limit exceeded on auth endpoints |
+| `500` | Internal Server Error | Unhandled exception — never expose stack traces in production |
 
-### Error Response Shape
-
+### Standard Error Response
 ```json
 {
   "success": false,
@@ -1447,17 +1853,19 @@ Extends the Ticket schema with ownership fields:
 }
 ```
 
-- `message` — single human-readable summary
-- `errors` — array of field-level issues (only for `400`/`422` validation errors)
+- `message` — one human-readable summary sentence
+- `errors` — optional array, only for `400`/`422` with field-level detail
+- Never include `data` in an error response
+- Never include internal stack traces in production
 
-### QR Verification Special Case
-The `/api/tickets/verify` endpoint always returns `200` even when a ticket is invalid. HTTP error codes are reserved for auth/server failures, not business logic outcomes.
+### QR Verification Special Rule
+`POST /api/tickets/verify` always returns `200` regardless of whether the ticket is valid, used, or not found. The `valid` boolean in `data` carries the business result. HTTP errors from this endpoint indicate only auth/server problems.
 
 ---
 
-## 15. File Upload Handling
+## 17. File Upload Handling
 
-### Accepted Formats
+### Accepted MIME Types
 - `image/jpeg`
 - `image/png`
 - `image/webp`
@@ -1465,106 +1873,123 @@ The `/api/tickets/verify` endpoint always returns `200` even when a ticket is in
 ### Size Limit
 - Maximum: **5 MB** per file
 
-### Storage
-- Store files in a dedicated object storage bucket (AWS S3, GCS, Azure Blob, or local disk for development)
-- Return a full, publicly accessible URL in `photoUrl`
-- Use a unique filename: `{ticketId}-{timestamp}.{ext}` to avoid collisions
+### Field Name
+The FE sends the photo under the multipart field name `photo`.
 
-### Multipart Field Name
-- The FE sends the photo under the field name `photo`
-- Use `multipart/form-data` encoding for all ticket create/purchase endpoints
+### Storage Strategy
+| Environment | Provider |
+|-------------|----------|
+| Development | Local disk (`./uploads/`) |
+| Production | AWS S3, GCS, or Azure Blob |
 
-### Recommended Middleware
-- `multer` (Node.js) or equivalent
-- Validate MIME type server-side — do not rely on file extension alone
-- Reject files that exceed the size limit with `413`
+- Use a unique filename: `{ticketId}-{timestamp}-{uuid}.{ext}` to prevent collisions
+- Return a full public URL in `photoUrl`
+- Store outside the web root to prevent direct shell execution
+
+### Server-Side Validation
+- Validate MIME type by inspecting the file buffer (e.g. `file-type` npm package) — do not trust the `Content-Type` header or file extension alone
+- Reject files that exceed 5 MB with `413`
+- Recommended middleware: `multer` (Node.js) with `limits: { fileSize: 5 * 1024 * 1024 }`
 
 ---
 
-## 16. Security Requirements
+## 18. Security Requirements
 
 ### Passwords
-- Hash all passwords using **bcrypt** with a cost factor of **12 or higher**
-- Never return or log passwords
-- Validate password complexity server-side: minimum 8 characters, at least one number
+- Hash with **bcrypt**, cost factor **≥ 12**
+- Never return, log, or store plaintext passwords
+- Server-side minimum: 8 characters and at least one number (even if FE validates first)
 
 ### JWT
-- Sign tokens with a strong secret (minimum 256-bit) stored in environment variables
-- Set expiry to **24 hours**
-- Include `role` and `status` in the token payload for role guards
-- Validate `status = "active"` on every protected request
+- Sign with a secret of **≥ 256 bits**, stored only in environment variables
+- Include `id`, `email`, `role`, `status` in the payload
+- Access token expiry: **24 hours**
+- On every request: verify signature, check expiry, confirm `status = "active"` from the DB
 
-### Role Isolation
-- Staff portal endpoints (`/api/auth/*`) must reject `customer` role logins
-- Customer portal endpoints (`/api/customer/auth/*`) must reject `admin`/`security` role logins
-- Never allow cross-portal access at any endpoint
+### Portal Isolation
+- `/api/auth/*` — rejects `customer` role at the login/register level
+- `/api/customer/auth/*` — rejects `admin` / `security` roles at the login/register level
+- Middleware role guards enforce this on every downstream route too
 
-### Input Validation
-- Validate and sanitize all request inputs server-side
-- Use parameterized queries / ORM to prevent SQL injection
-- Strip or escape HTML in string fields
+### Input Validation & Sanitisation
+- Validate all inputs server-side — never trust the FE alone
+- Use parameterised queries or an ORM to prevent SQL injection
+- Strip or escape HTML from all string fields
+- Reject unexpected fields (use allow-lists for request body fields)
 
 ### Rate Limiting
-- Apply rate limiting on auth endpoints:
-  - Login: max **10 requests / minute** per IP
-  - Register: max **5 requests / minute** per IP
+Apply on all auth endpoints:
+- `POST /api/auth/login` — max **10 req/min** per IP
+- `POST /api/auth/register` — max **5 req/min** per IP
+- `POST /api/customer/auth/login` — max **10 req/min** per IP
+- `POST /api/customer/auth/register` — max **5 req/min** per IP
 
 ### CORS
-- Restrict `Access-Control-Allow-Origin` to the known frontend domain
-- Do not use wildcard `*` in production
+- Set `Access-Control-Allow-Origin` to the known FE domain only
+- Never use `*` in production
 
 ### File Uploads
-- Validate MIME type server-side (not just extension)
-- Scan uploaded files for malware if the infrastructure allows
-- Store files outside the web root or in a separate bucket
+- Validate MIME type from file content, not extension
+- Consider virus/malware scanning for uploaded photos
+- Store files outside the web root or in isolated object storage
+
+### Sensitive Data
+- Omit `password` from all API responses
+- Redact sensitive fields in logs
+- Use HTTPS in production (TLS ≥ 1.2)
 
 ---
 
-## 17. Environment Variables
-
-The backend service must support the following environment variables:
+## 19. Environment Variables
 
 ```env
-# Server
+# ── Server ────────────────────────────────────────────
 PORT=5000
-NODE_ENV=development
+NODE_ENV=development              # development | production
 
-# Database
+# ── Database ──────────────────────────────────────────
 DATABASE_URL=postgresql://user:pass@localhost:5432/svss_db
 
-# JWT
-JWT_SECRET=your_strong_256_bit_secret_here
+# ── JWT ───────────────────────────────────────────────
+JWT_SECRET=your_256_bit_or_longer_secret_here
 JWT_EXPIRES_IN=24h
 
-# File Storage
-STORAGE_PROVIDER=local          # or: s3 | gcs
+# ── File Storage ──────────────────────────────────────
+STORAGE_PROVIDER=local            # local | s3 | gcs
 STORAGE_BUCKET=svss-uploads
+
+# AWS S3 (when STORAGE_PROVIDER=s3)
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
-AWS_REGION=
+AWS_REGION=us-east-1
+AWS_S3_BASE_URL=https://svss-uploads.s3.amazonaws.com
 
-# Local storage fallback (dev only)
+# Local dev fallback
 LOCAL_UPLOAD_DIR=./uploads
+LOCAL_UPLOAD_BASE_URL=http://localhost:5000/uploads
 
-# CORS
+# ── CORS ──────────────────────────────────────────────
 CORS_ORIGIN=http://localhost:5173
 
-# Frontend Base URL (for redirect links in emails etc.)
+# ── Frontend ──────────────────────────────────────────
 FRONTEND_URL=http://localhost:5173
+FRONTEND_STAFF_LOGIN_URL=http://localhost:5173/login
+FRONTEND_CUSTOMER_LOGIN_URL=http://localhost:5173/customer/login
 ```
 
 ---
 
-## Summary — All Endpoints
+## 20. Complete Endpoint Summary
 
-| Method | Endpoint | Auth | Roles |
-|--------|----------|------|-------|
+| Method | Endpoint | Auth | Allowed Roles |
+|--------|----------|------|---------------|
 | `POST` | `/api/auth/login` | Public | — |
 | `POST` | `/api/auth/register` | Public | — |
 | `POST` | `/api/auth/logout` | Bearer | admin, security |
 | `POST` | `/api/customer/auth/login` | Public | — |
 | `POST` | `/api/customer/auth/register` | Public | — |
 | `POST` | `/api/customer/auth/logout` | Bearer | customer |
+| `GET` | `/api/me` | Bearer | admin, security, customer |
 | `GET` | `/api/tickets` | Bearer | admin, security |
 | `GET` | `/api/tickets/:id` | Bearer | admin, security |
 | `POST` | `/api/tickets` | Bearer | admin |
@@ -1587,9 +2012,12 @@ FRONTEND_URL=http://localhost:5173
 | `GET` | `/api/events` | Bearer | customer |
 | `GET` | `/api/events/:id` | Bearer | customer |
 | `GET` | `/api/customer/tickets` | Bearer | customer |
+| `GET` | `/api/customer/tickets/:id` | Bearer | customer |
 | `POST` | `/api/customer/tickets/purchase` | Bearer | customer |
+
+**Total: 31 endpoints**
 
 ---
 
-*Generated from the SVSS frontend source — July 2026.*
-*Frontend base URL configured via `VITE_API_BASE_URL` environment variable (defaults to `/api`).*
+*Derived from SVSS frontend source code — July 2026.*
+*Frontend configures the base URL via the `VITE_API_BASE_URL` environment variable (defaults to `/api`).*

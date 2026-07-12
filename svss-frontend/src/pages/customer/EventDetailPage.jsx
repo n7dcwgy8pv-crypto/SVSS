@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -8,7 +8,7 @@ import Button from '../../components/shared/Button'
 import Alert from '../../components/shared/Alert'
 import QRCodeDisplay from '../../components/tickets/QRCodeDisplay'
 import { getEventByIdApi, purchaseTicketApi } from '../../api/customerApi'
-import { fileToBase64, validateImageFile, formatDate } from '../../utils/helpers'
+import { validateImageFile, formatDate } from '../../utils/helpers'
 import useAuthStore from '../../store/authStore'
 import './EventDetailPage.css'
 
@@ -17,14 +17,17 @@ export default function EventDetailPage() {
   const navigate    = useNavigate()
   const { user }    = useAuthStore()
 
-  const [event, setEvent]           = useState(null)
-  const [loading, setLoading]       = useState(true)
-  const [purchasing, setPurchasing] = useState(false)
-  const [selectedZone, setSelectedZone] = useState(null)
-  const [photoPreview, setPhotoPreview] = useState(null)
-  const [photoError, setPhotoError]     = useState('')
-  const [apiError, setApiError]         = useState('')
+  const [event, setEvent]                     = useState(null)
+  const [loading, setLoading]                 = useState(true)
+  const [purchasing, setPurchasing]           = useState(false)
+  const [selectedZone, setSelectedZone]       = useState(null)
+  // Hold the raw File for upload and an object URL for preview
+  const [photoFile, setPhotoFile]             = useState(null)
+  const [photoPreview, setPhotoPreview]       = useState(null)
+  const [photoError, setPhotoError]           = useState('')
+  const [apiError, setApiError]               = useState('')
   const [purchasedTicket, setPurchasedTicket] = useState(null)
+  const previewUrlRef = useRef(null)
 
   const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: { visitorName: user?.name || '', visitorEmail: user?.email || '' },
@@ -35,42 +38,56 @@ export default function EventDetailPage() {
       .then((e) => { setEvent(e); setSelectedZone(e.zones[0]) })
       .catch(() => navigate('/customer/events', { replace: true }))
       .finally(() => setLoading(false))
+    // Revoke any object URL on unmount
+    return () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current) }
   }, [eventId, navigate])
 
-  const handlePhotoChange = async (e) => {
+  const handlePhotoChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     const err = validateImageFile(file)
     if (err) { setPhotoError(err); return }
     setPhotoError('')
-    setPhotoPreview(await fileToBase64(file))
+    // Revoke previous preview URL
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+    const url = URL.createObjectURL(file)
+    previewUrlRef.current = url
+    setPhotoFile(file)
+    setPhotoPreview(url)
+  }
+
+  const handleRemovePhoto = () => {
+    if (previewUrlRef.current) { URL.revokeObjectURL(previewUrlRef.current); previewUrlRef.current = null }
+    setPhotoFile(null)
+    setPhotoPreview(null)
   }
 
   const onSubmit = async (data) => {
-    if (!photoPreview) { setPhotoError('Please upload your photo for identity verification.'); return }
+    if (!photoFile)  { setPhotoError('Please upload your photo for identity verification.'); return }
     if (!selectedZone) { setApiError('Please select a zone.'); return }
     if (selectedZone.available <= 0) { setApiError('This zone is sold out. Please choose another.'); return }
 
     setApiError('')
     setPurchasing(true)
     try {
+      // Pass the raw File object — purchaseTicketApi builds FormData internally
       const ticket = await purchaseTicketApi({
-        userId:     user.id,
-        userName:   data.visitorName,
-        userEmail:  data.visitorEmail,
-        eventId:    event.id,
-        zone:       selectedZone.name,
-        photoUrl:   photoPreview,
+        visitorName:  data.visitorName,
+        visitorEmail: data.visitorEmail,
+        eventId:      event.id,
+        zone:         selectedZone.name,
+        photo:        photoFile,
       })
       setPurchasedTicket(ticket)
       toast.success(`Ticket ${ticket.id} purchased successfully! 🎉`, { duration: 4000 })
     } catch (err) {
-      setApiError(err.message)
+      setApiError(err?.response?.data?.message || err.message)
     } finally {
       setPurchasing(false)
     }
   }
 
+  /* ── Loading ── */
   if (loading) {
     return (
       <AppLayout title="Event Details">
@@ -93,18 +110,10 @@ export default function EventDetailPage() {
           <h2>Ticket Confirmed!</h2>
           <p>Your ticket <strong>{purchasedTicket.id}</strong> for <strong>{purchasedTicket.event}</strong> is ready.</p>
           <div className="evtd-success__details">
-            <div className="evtd-success__detail-row">
-              <span>Zone</span><strong>{purchasedTicket.zone}</strong>
-            </div>
-            <div className="evtd-success__detail-row">
-              <span>Seat</span><strong>{purchasedTicket.seat}</strong>
-            </div>
-            <div className="evtd-success__detail-row">
-              <span>Date</span><strong>{formatDate(purchasedTicket.eventDate)}</strong>
-            </div>
-            <div className="evtd-success__detail-row">
-              <span>Amount Paid</span><strong>${purchasedTicket.price}</strong>
-            </div>
+            <div className="evtd-success__detail-row"><span>Zone</span><strong>{purchasedTicket.zone}</strong></div>
+            <div className="evtd-success__detail-row"><span>Seat</span><strong>{purchasedTicket.seat}</strong></div>
+            <div className="evtd-success__detail-row"><span>Date</span><strong>{formatDate(purchasedTicket.eventDate)}</strong></div>
+            <div className="evtd-success__detail-row"><span>Amount Paid</span><strong>${purchasedTicket.price}</strong></div>
           </div>
           <p className="evtd-success__qr-label">Present this QR code at the gate</p>
           <QRCodeDisplay value={purchasedTicket.qrData} size={220} />
@@ -117,6 +126,7 @@ export default function EventDetailPage() {
     )
   }
 
+  /* ── Event detail + purchase form ── */
   return (
     <AppLayout title={event.name}>
       <div className="evtd-page">
@@ -124,14 +134,14 @@ export default function EventDetailPage() {
         {/* Event info */}
         <div className="evtd-info">
           <div className="evtd-info__img-wrap">
-            <img src={event.image} alt={event.name} className="evtd-info__img" />
+            {event.image && <img src={event.image} alt={event.name} className="evtd-info__img" />}
             <span className="evtd-info__category">{event.category}</span>
           </div>
           <div className="evtd-info__body">
             <h1 className="evtd-info__name">{event.name}</h1>
             <p className="evtd-info__meta">📍 {event.venue}</p>
             <p className="evtd-info__meta">📅 {formatDate(event.date)} at {event.time}</p>
-            <p className="evtd-info__desc">{event.description}</p>
+            {event.description && <p className="evtd-info__desc">{event.description}</p>}
 
             {/* Zone picker */}
             <div className="evtd-zones">
@@ -183,9 +193,7 @@ export default function EventDetailPage() {
                   placeholder="Your full name"
                   {...register('visitorName', { required: 'Full name is required.' })}
                 />
-                {errors.visitorName && (
-                  <p className="field__error" role="alert">{errors.visitorName.message}</p>
-                )}
+                {errors.visitorName && <p className="field__error" role="alert">{errors.visitorName.message}</p>}
               </div>
               <div className="field">
                 <label className="field__label" htmlFor="visitorEmail">
@@ -201,19 +209,15 @@ export default function EventDetailPage() {
                     pattern: { value: /\S+@\S+\.\S+/, message: 'Invalid email.' },
                   })}
                 />
-                {errors.visitorEmail && (
-                  <p className="field__error" role="alert">{errors.visitorEmail.message}</p>
-                )}
+                {errors.visitorEmail && <p className="field__error" role="alert">{errors.visitorEmail.message}</p>}
               </div>
             </div>
 
-            {/* Photo upload — needed for identity verification at gate */}
+            {/* Photo upload */}
             <div className="evtd-photo-section">
               <p className="evtd-photo-section__label">
                 Identity Photo
-                <span className="evtd-photo-section__hint">
-                  Required for gate verification
-                </span>
+                <span className="evtd-photo-section__hint">Required for gate verification</span>
               </p>
               <label htmlFor="purchase-photo" className="evtd-photo-label">
                 {photoPreview
@@ -238,7 +242,7 @@ export default function EventDetailPage() {
                 />
               </label>
               {photoPreview && (
-                <button type="button" className="evtd-photo-remove" onClick={() => setPhotoPreview(null)}>
+                <button type="button" className="evtd-photo-remove" onClick={handleRemovePhoto}>
                   Remove photo
                 </button>
               )}
@@ -255,14 +259,11 @@ export default function EventDetailPage() {
                   <path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
                   <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
                 </svg>
-                {selectedZone
-                  ? `Purchase — $${selectedZone.price}`
-                  : 'Select a Zone'}
+                {selectedZone ? `Purchase — $${selectedZone.price}` : 'Select a Zone'}
               </Button>
             </div>
           </form>
         </div>
-
       </div>
     </AppLayout>
   )

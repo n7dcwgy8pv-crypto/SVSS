@@ -8,6 +8,7 @@ import Alert from '../../components/shared/Alert'
 import { customerRegisterApi } from '../../api/authApi'
 import useAuthStore from '../../store/authStore'
 import ParticleCanvas from '../../components/auth/ParticleCanvas'
+import { getErrorMessage } from '../../utils/apiError'
 import '../public/AuthPages.css'
 import './CustomerAuthPages.css'
 
@@ -42,7 +43,7 @@ export default function CustomerRegisterPage() {
       toast.success('Account created! Start exploring events. 🎪')
       navigate('/customer/events', { replace: true })
     } catch (err) {
-      setApiError(err.message)
+      setApiError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }

@@ -6,21 +6,21 @@ import Badge from '../../components/shared/Badge'
 import Modal from '../../components/shared/Modal'
 import QRCodeDisplay from '../../components/tickets/QRCodeDisplay'
 import { getMyTicketsApi } from '../../api/customerApi'
-import useAuthStore from '../../store/authStore'
 import { formatDate, formatDateTime, ticketStatusLabel } from '../../utils/helpers'
 import './MyTicketsPage.css'
 
 export default function MyTicketsPage() {
-  const { user }          = useAuthStore()
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)   // ticket shown in QR modal
 
   useEffect(() => {
-    getMyTicketsApi(user.id)
+    // No userId param — server scopes to the authenticated token automatically
+    getMyTicketsApi()
       .then(setTickets)
+      .catch(() => setTickets([]))
       .finally(() => setLoading(false))
-  }, [user.id])
+  }, [])
 
   return (
     <AppLayout title="My Tickets">

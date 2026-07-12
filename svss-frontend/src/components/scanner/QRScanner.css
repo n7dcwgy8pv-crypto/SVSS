@@ -1,70 +1,122 @@
 /* ═══ SVSS QR Scanner ═══ */
-.qr-scanner { display: flex; flex-direction: column; gap: 16px; max-width: 480px; margin: 0 auto; }
+.qr-scanner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 480px;
+  margin: 0 auto;
+}
 
-.qr-scanner__view {
+/* ── Wrapper that holds both the library mount and our overlays ── */
+.qr-scanner__view-wrap {
+  position: relative;
   background: var(--surface-2);
   border-radius: var(--radius-xl);
   overflow: hidden;
-  min-height: 300px;
-  position: relative;
+  min-height: 320px;
   border: 1px solid var(--glass-border);
 }
-.qr-scanner__view video { width: 100% !important; border-radius: var(--radius-xl); }
 
-.qr-scanner__placeholder {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 14px;
-  padding: 56px 24px; text-align: center;
-  color: var(--text-3); font-size: 14px;
+/* ── The div html5-qrcode renders its <video> into ── */
+/* Must start empty — no children from React */
+.qr-scanner__mount {
+  width: 100%;
+  min-height: 320px;
+}
+
+/* Force the library's video to fill the container cleanly */
+.qr-scanner__mount video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  border-radius: var(--radius-xl);
+  display: block;
+}
+
+/* Hide the library's own scan region box, file upload button and header */
+.qr-scanner__mount > div > div:first-child,   /* scan region highlight */
+.qr-scanner__mount #qr-reader-header,
+.qr-scanner__mount #qr-reader-dashboard,
+.qr-scanner__mount #qr-reader-filescan,
+.qr-scanner__mount img[alt="Info icon"] {
+  display: none !important;
+}
+
+/* ── Overlays — centred over the mount via absolute positioning ── */
+.qr-scanner__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 14px;
   background: var(--surface-1);
   border-radius: var(--radius-xl);
   border: 2px dashed rgba(255,255,255,.08);
+  z-index: 2;
 }
-.qr-scanner__placeholder p { max-width: 240px; line-height: 1.5; }
+.qr-scanner__overlay p { max-width: 240px; line-height: 1.5; }
+.qr-scanner__overlay-hint { font-size: 12px; color: var(--text-4); margin-top: -6px; }
 
+/* Spinner for the starting state */
 .qr-scanner__spin {
-  width: 40px; height: 40px;
-  border: 3px solid rgba(255,255,255,.05);
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255,255,255,.06);
   border-top-color: var(--neon-blue);
   border-radius: 50%;
   animation: spin .7s linear infinite;
   filter: drop-shadow(0 0 8px var(--neon-blue));
 }
 
-/* Scanning overlay corners */
+/* ── Scanning corner brackets + sweep line — shown over active video ── */
 .qr-scanner__frame {
   position: absolute;
-  top: 50%; left: 50%;
+  top: 50%;
+  left: 50%;
   transform: translate(-50%, -50%);
-  width: 220px; height: 220px;
+  width: 230px;
+  height: 230px;
   pointer-events: none;
+  z-index: 3;
 }
+
 .qr-scanner__corner {
   position: absolute;
-  width: 28px; height: 28px;
+  width: 28px;
+  height: 28px;
   border-color: var(--neon-cyan);
   border-style: solid;
   border-width: 0;
 }
-.qr-scanner__corner--tl { top:0; left:0;  border-top-width:3px; border-left-width:3px;  border-radius: 4px 0 0 0; }
-.qr-scanner__corner--tr { top:0; right:0; border-top-width:3px; border-right-width:3px; border-radius: 0 4px 0 0; }
-.qr-scanner__corner--bl { bottom:0; left:0;  border-bottom-width:3px; border-left-width:3px;  border-radius: 0 0 0 4px; }
-.qr-scanner__corner--br { bottom:0; right:0; border-bottom-width:3px; border-right-width:3px; border-radius: 0 0 4px 0; }
+.qr-scanner__corner--tl { top: 0; left: 0;   border-top-width: 3px;    border-left-width: 3px;   border-radius: 4px 0 0 0; }
+.qr-scanner__corner--tr { top: 0; right: 0;  border-top-width: 3px;    border-right-width: 3px;  border-radius: 0 4px 0 0; }
+.qr-scanner__corner--bl { bottom: 0; left: 0;  border-bottom-width: 3px; border-left-width: 3px;   border-radius: 0 0 0 4px; }
+.qr-scanner__corner--br { bottom: 0; right: 0; border-bottom-width: 3px; border-right-width: 3px;  border-radius: 0 0 4px 0; }
 
-/* Scan line */
 .qr-scanner__line {
   position: absolute;
-  left: 10%; right: 10%;
+  left: 8%;
+  right: 8%;
   height: 2px;
   background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
   box-shadow: 0 0 12px var(--neon-cyan);
-  animation: scan-line 2s ease-in-out infinite;
-}
-@keyframes scan-line {
-  0%   { top: 10%;  opacity: 0; }
-  10%  { opacity: 1; }
-  90%  { opacity: 1; }
-  100% { top: 90%; opacity: 0; }
+  animation: scan-line 2.2s ease-in-out infinite;
+  z-index: 4;
 }
 
-.qr-scanner__controls { margin-top: 4px; }
+@keyframes scan-line {
+  0%   { top: 8%;  opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { top: 92%; opacity: 0; }
+}
+
+.qr-scanner__controls {
+  margin-top: 4px;
+}

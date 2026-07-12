@@ -9,6 +9,7 @@ import Alert from '../../components/shared/Alert'
 import { registerApi } from '../../api/authApi'
 import useAuthStore from '../../store/authStore'
 import ParticleCanvas from '../../components/auth/ParticleCanvas'
+import { getErrorMessage } from '../../utils/apiError'
 import './AuthPages.css'
 
 function getStrength(pw) {
@@ -45,7 +46,7 @@ export default function RegisterPage() {
         { replace: true }
       )
     } catch (err) {
-      setApiError(err.message)
+      setApiError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }
