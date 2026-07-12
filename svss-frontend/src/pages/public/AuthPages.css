@@ -203,3 +203,48 @@
   .auth-hero { display: none; }
   .auth-form-panel { padding: 32px 20px; align-items: flex-start; padding-top: 48px; }
 }
+
+/* ── Portal switch block (staff ↔ customer) ── */
+.auth-portal-switch {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.auth-portal-switch__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--neon-green);
+  transition: color var(--t-fast);
+}
+.auth-portal-switch__link:hover {
+  color: var(--neon-cyan);
+  text-decoration: underline;
+}
+
+/* ── Customer auth hero overrides ── */
+.auth-hero--customer::before {
+  background: radial-gradient(circle, rgba(16,185,129,.25) 0%, transparent 70%);
+}
+.auth-hero--customer::after {
+  background: radial-gradient(circle, rgba(0,212,255,.2) 0%, transparent 70%);
+}
+.auth-hero--customer .auth-hero__logo {
+  background: var(--grad-success);
+  box-shadow: var(--glow-green), var(--shadow-float);
+}
+.auth-hero--customer .auth-hero__system {
+  background: var(--grad-success);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Customer portal eyebrow ── */
+.auth-card__eyebrow--customer { color: var(--neon-green); }

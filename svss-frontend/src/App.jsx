@@ -2,29 +2,41 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import useAuthStore from './store/authStore'
 
-// Public pages
+// Staff auth pages
 import LoginPage    from './pages/public/LoginPage'
 import RegisterPage from './pages/public/RegisterPage'
 import NotFoundPage from './pages/public/NotFoundPage'
 
+// Customer auth pages (dedicated, isolated)
+import CustomerLoginPage    from './pages/customer/CustomerLoginPage'
+import CustomerRegisterPage from './pages/customer/CustomerRegisterPage'
+
 // Admin pages
-import AdminDashboard  from './pages/admin/AdminDashboard'
-import TicketsPage     from './pages/admin/TicketsPage'
+import AdminDashboard   from './pages/admin/AdminDashboard'
+import TicketsPage      from './pages/admin/TicketsPage'
 import CreateTicketPage from './pages/admin/CreateTicketPage'
-import UsersPage       from './pages/admin/UsersPage'
-import ReportsPage     from './pages/admin/ReportsPage'
-import IncidentsPage   from './pages/admin/IncidentsPage'
+import UsersPage        from './pages/admin/UsersPage'
+import ReportsPage      from './pages/admin/ReportsPage'
+import IncidentsPage    from './pages/admin/IncidentsPage'
 
 // Security pages
-import SecurityDashboard   from './pages/security/SecurityDashboard'
-import ScannerPage         from './pages/security/ScannerPage'
-import VerificationPage    from './pages/security/VerificationPage'
-import IncidentReportPage  from './pages/security/IncidentReportPage'
+import SecurityDashboard  from './pages/security/SecurityDashboard'
+import ScannerPage        from './pages/security/ScannerPage'
+import VerificationPage   from './pages/security/VerificationPage'
+import IncidentReportPage from './pages/security/IncidentReportPage'
+
+// Customer portal pages
+import CustomerDashboard from './pages/customer/CustomerDashboard'
+import EventsPage        from './pages/customer/EventsPage'
+import EventDetailPage   from './pages/customer/EventDetailPage'
+import MyTicketsPage     from './pages/customer/MyTicketsPage'
 
 function RootRedirect() {
   const { isAuthenticated, user } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  return <Navigate to={user?.role === 'admin' ? '/admin/dashboard' : '/security/dashboard'} replace />
+  if (user?.role === 'admin')    return <Navigate to="/admin/dashboard"    replace />
+  if (user?.role === 'security') return <Navigate to="/security/dashboard" replace />
+  return <Navigate to="/customer/dashboard" replace />
 }
 
 export default function App() {
@@ -33,11 +45,15 @@ export default function App() {
       {/* Root redirect */}
       <Route path="/" element={<RootRedirect />} />
 
-      {/* Public */}
+      {/* ── Staff auth ── */}
       <Route path="/login"    element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
-      {/* Admin routes */}
+      {/* ── Customer auth (dedicated, isolated) ── */}
+      <Route path="/customer/login"    element={<CustomerLoginPage />} />
+      <Route path="/customer/register" element={<CustomerRegisterPage />} />
+
+      {/* ── Admin routes ── */}
       <Route path="/admin" element={
         <ProtectedRoute allowedRoles={['admin']}>
           <Navigate to="/admin/dashboard" replace />
@@ -62,7 +78,7 @@ export default function App() {
         <ProtectedRoute allowedRoles={['admin']}><IncidentsPage /></ProtectedRoute>
       } />
 
-      {/* Security routes */}
+      {/* ── Security routes ── */}
       <Route path="/security" element={
         <ProtectedRoute allowedRoles={['security']}>
           <Navigate to="/security/dashboard" replace />
@@ -79,6 +95,25 @@ export default function App() {
       } />
       <Route path="/security/incidents" element={
         <ProtectedRoute allowedRoles={['security']}><IncidentReportPage /></ProtectedRoute>
+      } />
+
+      {/* ── Customer portal routes ── */}
+      <Route path="/customer" element={
+        <ProtectedRoute allowedRoles={['customer']}>
+          <Navigate to="/customer/dashboard" replace />
+        </ProtectedRoute>
+      } />
+      <Route path="/customer/dashboard" element={
+        <ProtectedRoute allowedRoles={['customer']}><CustomerDashboard /></ProtectedRoute>
+      } />
+      <Route path="/customer/events" element={
+        <ProtectedRoute allowedRoles={['customer']}><EventsPage /></ProtectedRoute>
+      } />
+      <Route path="/customer/events/:eventId" element={
+        <ProtectedRoute allowedRoles={['customer']}><EventDetailPage /></ProtectedRoute>
+      } />
+      <Route path="/customer/tickets" element={
+        <ProtectedRoute allowedRoles={['customer']}><MyTicketsPage /></ProtectedRoute>
       } />
 
       {/* Catch-all */}

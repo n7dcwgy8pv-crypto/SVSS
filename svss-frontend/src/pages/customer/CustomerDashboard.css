@@ -1,0 +1,243 @@
+/* ═══ Customer Dashboard ═══ */
+.cust-dash {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 900px;
+}
+
+/* ── Welcome banner ── */
+.cust-welcome {
+  background: var(--grad-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: 32px 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.cust-welcome::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(16,185,129,.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cust-welcome__eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--neon-green);
+  margin-bottom: 4px;
+}
+.cust-welcome__name {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-1);
+  margin-bottom: 6px;
+}
+.cust-welcome__sub {
+  font-size: 14px;
+  color: var(--text-3);
+}
+.cust-welcome__cta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: var(--grad-success);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all var(--t-fast);
+  box-shadow: var(--glow-green);
+}
+.cust-welcome__cta:hover {
+  opacity: .88;
+  transform: translateY(-2px);
+}
+
+/* ── Stats row ── */
+.cust-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.cust-stat {
+  background: var(--grad-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.cust-stat__icon {
+  width: 48px; height: 48px;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.cust-stat__value {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-1);
+  line-height: 1;
+}
+.cust-stat__label {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* ── Section ── */
+.cust-section {
+  background: var(--grad-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.cust-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--glass-border);
+}
+.cust-section__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.cust-section__link {
+  font-size: 12px;
+  color: var(--neon-blue);
+  font-weight: 600;
+  transition: color var(--t-fast);
+}
+.cust-section__link:hover { color: var(--neon-cyan); }
+
+.cust-loading {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+}
+
+/* ── Empty state ── */
+.cust-empty {
+  text-align: center;
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: 15px;
+}
+.cust-empty p:first-child { font-size: 36px; }
+.cust-empty__cta {
+  margin-top: 8px;
+  color: var(--neon-blue);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* ── Ticket list ── */
+.cust-ticket-list {
+  display: flex;
+  flex-direction: column;
+}
+.cust-ticket-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 22px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  transition: background var(--t-fast);
+}
+.cust-ticket-card:last-child { border-bottom: none; }
+.cust-ticket-card:hover { background: var(--glass-bg); }
+.cust-ticket-card__event {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 3px;
+}
+.cust-ticket-card__meta {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+.cust-ticket-card__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.cust-ticket-card__id {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--neon-blue);
+  background: rgba(79,142,255,.08);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Quick actions ── */
+.cust-quick {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.cust-quick-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  background: var(--grad-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  transition: all var(--t-fast);
+  color: var(--text-1);
+}
+.cust-quick-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(79,142,255,.25);
+  box-shadow: 0 8px 28px rgba(0,0,0,.25);
+}
+.cust-quick-card__icon {
+  width: 48px; height: 48px;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.cust-quick-card__label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.cust-quick-card__sub {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+@media (max-width: 700px) {
+  .cust-welcome  { flex-direction: column; align-items: flex-start; }
+  .cust-stats    { grid-template-columns: 1fr; }
+  .cust-quick    { grid-template-columns: 1fr; }
+}

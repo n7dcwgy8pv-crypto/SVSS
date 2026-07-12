@@ -37,6 +37,7 @@ export const incidentStatusColor = (status) => ({
 export const roleLabel = (role) => ({
   admin:    'Administrator',
   security: 'Security Staff',
+  customer: 'Customer',
 }[role] || role)
 
 export const fileToBase64 = (file) =>

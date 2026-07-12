@@ -8,6 +8,72 @@ export const MOCK_USERS = [
   { id: 'u2', name: 'Bob Security',   email: 'bob@svss.io',      role: 'security', status: 'active',   createdAt: '2026-01-15' },
   { id: 'u3', name: 'Carol Guard',    email: 'carol@svss.io',    role: 'security', status: 'active',   createdAt: '2026-02-01' },
   { id: 'u4', name: 'Dave Operator',  email: 'dave@svss.io',     role: 'security', status: 'inactive', createdAt: '2026-02-20' },
+  { id: 'u5', name: 'Eva Customer',   email: 'eva@svss.io',      role: 'customer', status: 'active',   createdAt: '2026-03-01' },
+]
+
+// Events available for customers to purchase tickets
+export const MOCK_EVENTS = [
+  {
+    id: 'EVT-001',
+    name: 'Rock Concert 2026',
+    venue: 'Grand Arena, Downtown',
+    date: '2026-09-15',
+    time: '19:00',
+    category: 'Concert',
+    image: 'https://images.unsplash.com/photo-1540039155733-5bb30b4d8955?w=600&q=80',
+    description: 'An electrifying night of rock music featuring top international bands.',
+    zones: [
+      { name: 'VIP',      price: 250, available: 20 },
+      { name: 'Premium',  price: 150, available: 45 },
+      { name: 'General',  price: 80,  available: 120 },
+      { name: 'Standard', price: 50,  available: 200 },
+    ],
+  },
+  {
+    id: 'EVT-002',
+    name: 'Gaming Expo 2026',
+    venue: 'Tech Convention Center',
+    date: '2026-10-05',
+    time: '10:00',
+    category: 'Expo',
+    image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=600&q=80',
+    description: 'The largest gaming and esports expo of the year. Try the latest games before launch.',
+    zones: [
+      { name: 'VIP',      price: 180, available: 15 },
+      { name: 'General',  price: 60,  available: 300 },
+      { name: 'Standard', price: 35,  available: 500 },
+    ],
+  },
+  {
+    id: 'EVT-003',
+    name: 'Tech Summit 2026',
+    venue: 'Innovation Hub',
+    date: '2026-11-20',
+    time: '09:00',
+    category: 'Conference',
+    image: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=600&q=80',
+    description: 'Industry leaders share insights on AI, blockchain, and the future of technology.',
+    zones: [
+      { name: 'VIP',      price: 400, available: 10 },
+      { name: 'Premium',  price: 220, available: 30 },
+      { name: 'General',  price: 100, available: 80 },
+    ],
+  },
+  {
+    id: 'EVT-004',
+    name: 'Jazz Night Under Stars',
+    venue: 'Riverside Amphitheatre',
+    date: '2026-08-30',
+    time: '20:00',
+    category: 'Concert',
+    image: 'https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=600&q=80',
+    description: 'A magical evening of smooth jazz under an open sky. Bring your blankets!',
+    zones: [
+      { name: 'Premium',  price: 120, available: 60 },
+      { name: 'General',  price: 55,  available: 180 },
+      { name: 'Standard', price: 30,  available: 250 },
+    ],
+  },
 ]
 
 export const MOCK_TICKETS = [
@@ -83,6 +149,31 @@ export const MOCK_STATS = {
   openIncidents: 3,
   todayScans: 42,
 }
+
+// Customer-owned ticket purchases (linked to a user)
+export const MOCK_CUSTOMER_TICKETS = [
+  {
+    id: 'TKT-C001',
+    ownerId: 'u5',
+    ownerName: 'Eva Customer',
+    ownerEmail: 'eva@svss.io',
+    eventId: 'EVT-001',
+    event: 'Rock Concert 2026',
+    eventDate: '2026-09-15',
+    venue: 'Grand Arena, Downtown',
+    zone: 'General',
+    seat: 'AUTO-G45',
+    price: 80,
+    status: 'valid',
+    usedAt: null,
+    qrData: 'TKT-C001|Eva Customer|Rock Concert 2026|General|AUTO-G45',
+    photoUrl: 'https://i.pravatar.cc/150?img=9',
+    purchasedAt: '2026-07-01T10:30:00',
+    visitorName: 'Eva Customer',
+    visitorEmail: 'eva@svss.io',
+    createdAt: '2026-07-01',
+  },
+]
 
 export const MOCK_RECENT_SCANS = [
   { id: 's1', ticketId: 'TKT-001', visitorName: 'John Doe',    result: 'approved', time: '2026-06-23T08:10:00' },

@@ -19,6 +19,12 @@ const securityLinks = [
   { to: '/security/incidents',  label: 'Report Incident', icon: 'alert-triangle', color: '#ef4444' },
 ]
 
+const customerLinks = [
+  { to: '/customer/dashboard', label: 'My Dashboard', icon: 'grid',        color: '#4f8eff' },
+  { to: '/customer/events',    label: 'Browse Events', icon: 'calendar',   color: '#10b981' },
+  { to: '/customer/tickets',   label: 'My Tickets',   icon: 'ticket',      color: '#a855f7' },
+]
+
 function Icon({ name, size = 16 }) {
   const paths = {
     grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></>,
@@ -31,6 +37,7 @@ function Icon({ name, size = 16 }) {
     'check-shield': <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></>,
     'log-out': <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
     shield: <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>,
+    calendar: <><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
   }
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -43,12 +50,18 @@ function Icon({ name, size = 16 }) {
 export default function Sidebar({ mobileOpen, onClose }) {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
-  const links = user?.role === 'admin' ? adminLinks : securityLinks
+  const links =
+    user?.role === 'admin'
+      ? adminLinks
+      : user?.role === 'security'
+      ? securityLinks
+      : customerLinks
 
   const handleLogout = () => {
+    const isCustomer = user?.role === 'customer'
     logout()
     toast.success('See you next time! 👋')
-    navigate('/login')
+    navigate(isCustomer ? '/customer/login' : '/login')
   }
 
   return (
@@ -74,7 +87,13 @@ export default function Sidebar({ mobileOpen, onClose }) {
           </div>
           <div>
             <p className="sidebar__user-name">{user?.name}</p>
-            <p className="sidebar__user-role">{user?.role === 'admin' ? 'Administrator' : 'Security Staff'}</p>
+            <p className="sidebar__user-role">
+              {user?.role === 'admin'
+                ? 'Administrator'
+                : user?.role === 'security'
+                ? 'Security Staff'
+                : 'Customer'}
+            </p>
           </div>
         </div>
 

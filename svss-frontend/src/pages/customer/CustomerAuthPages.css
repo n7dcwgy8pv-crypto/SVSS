@@ -1,0 +1,72 @@
+/* ═══════════════════════════════════════════════════
+   Customer Portal — Auth page overrides
+   Extends AuthPages.css with a green/cyan theme
+   ═══════════════════════════════════════════════════ */
+
+/* Portal badge chip */
+.cauth-portal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: rgba(16,185,129,.12);
+  border: 1px solid rgba(16,185,129,.3);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--neon-green);
+  margin-bottom: 14px;
+}
+
+/* Customer-tinted link */
+.auth-link--customer {
+  color: var(--neon-green);
+}
+.auth-link--customer:hover {
+  color: var(--neon-cyan);
+}
+
+/* Staff portal switch override — blue tint when shown on customer pages */
+.auth-portal-switch__link--staff {
+  color: var(--neon-blue);
+}
+.auth-portal-switch__link--staff:hover {
+  color: var(--neon-cyan);
+}
+
+/* Customer primary button — override blue gradient to green */
+.btn--customer {
+  background: var(--grad-success) !important;
+  box-shadow: var(--glow-green) !important;
+}
+.btn--customer:hover {
+  opacity: .88;
+}
+
+/* Demo box — green tint for customer pages */
+.auth-demo--customer {
+  background: rgba(16,185,129,.06);
+  border-color: rgba(16,185,129,.18);
+}
+.auth-demo--customer .auth-demo__title {
+  color: var(--neon-green);
+}
+
+/* Terms text */
+.cauth-terms {
+  font-size: 12px;
+  color: var(--text-4);
+  line-height: 1.5;
+  text-align: center;
+  margin-top: -4px;
+}
+.cauth-terms__link {
+  color: var(--neon-green);
+  font-weight: 600;
+  cursor: pointer;
+}
+.cauth-terms__link:hover {
+  text-decoration: underline;
+}

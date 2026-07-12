@@ -5,32 +5,25 @@ import toast from 'react-hot-toast'
 import Input from '../../components/shared/Input'
 import Button from '../../components/shared/Button'
 import Alert from '../../components/shared/Alert'
-import { loginApi } from '../../api/authApi'
+import { customerLoginApi } from '../../api/authApi'
 import useAuthStore from '../../store/authStore'
 import ParticleCanvas from '../../components/auth/ParticleCanvas'
-import './AuthPages.css'
-
-function ShieldIcon({ size = 32 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="white" aria-hidden="true">
-      <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
-    </svg>
-  )
-}
+import '../public/AuthPages.css'
+import './CustomerAuthPages.css'
 
 const features = [
-  { icon: '🔐', color: 'rgba(79,142,255,.2)',  text: 'Role-based access for Admin & Security' },
-  { icon: '📷', color: 'rgba(0,212,255,.2)',   text: 'Live QR scanning with instant validation' },
-  { icon: '🖼️', color: 'rgba(168,85,247,.2)',  text: 'Photo identity matching at entry gates' },
-  { icon: '⚡', color: 'rgba(245,158,11,.2)',  text: 'Real-time incident detection & reporting' },
+  { icon: '🎟️', color: 'rgba(16,185,129,.2)',  text: 'Browse and purchase event tickets online' },
+  { icon: '📱', color: 'rgba(0,212,255,.2)',   text: 'Digital QR tickets — no printing needed' },
+  { icon: '🎪', color: 'rgba(168,85,247,.2)',  text: 'Concerts, expos, summits & more' },
+  { icon: '⚡', color: 'rgba(245,158,11,.2)',  text: 'Instant ticket delivery to your account' },
 ]
 
-export default function LoginPage() {
+export default function CustomerLoginPage() {
   const { login } = useAuthStore()
-  const navigate = useNavigate()
-  const location = useLocation()
+  const navigate  = useNavigate()
+  const location  = useLocation()
   const [apiError, setApiError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading]   = useState(false)
   const [showPass, setShowPass] = useState(false)
 
   const { register, handleSubmit, formState: { errors } } = useForm()
@@ -39,14 +32,13 @@ export default function LoginPage() {
     setApiError('')
     setLoading(true)
     try {
-      const { user, token } = await loginApi(data)
+      const { user, token } = await customerLoginApi(data)
       login(user, token)
-      toast.success(`Welcome back, ${user.name}!`, { icon: '🛡️' })
+      toast.success(`Welcome back, ${user.name}! 🎉`)
       const from = location.state?.from?.pathname
-      navigate(
-        from || (user.role === 'admin' ? '/admin/dashboard' : '/security/dashboard'),
-        { replace: true }
-      )
+      // Only allow redirect to customer routes
+      const safePath = from?.startsWith('/customer') ? from : '/customer/dashboard'
+      navigate(safePath, { replace: true })
     } catch (err) {
       setApiError(err.message)
     } finally {
@@ -57,16 +49,18 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       {/* ── Left hero panel ── */}
-      <div className="auth-hero">
+      <div className="auth-hero auth-hero--customer">
         <ParticleCanvas />
         <div className="auth-hero__content">
           <div className="auth-hero__logo">
-            <ShieldIcon size={36} />
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+              <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/>
+            </svg>
           </div>
-          <h1 className="auth-hero__system">Smart Venue<br/>Security System</h1>
+          <h1 className="auth-hero__system">Your Event<br/>Tickets, Ready</h1>
           <p className="auth-hero__tagline">
-            AI-powered access control for concerts, stadiums,<br/>
-            festivals and large-scale events.
+            Buy tickets online, get your QR pass instantly,<br/>
+            and walk straight through the gate.
           </p>
           <div className="auth-hero__features">
             {features.map((f, i) => (
@@ -84,9 +78,14 @@ export default function LoginPage() {
       {/* ── Right form panel ── */}
       <div className="auth-form-panel">
         <div className="auth-card">
-          <p className="auth-card__eyebrow">Staff Portal</p>
-          <h2 className="auth-card__title">Sign in to SVSS</h2>
-          <p className="auth-card__sub">Administrator and Security Staff access only.</p>
+          <div className="cauth-portal-badge">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+              <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/>
+            </svg>
+            Customer Portal
+          </div>
+          <h2 className="auth-card__title">Welcome back</h2>
+          <p className="auth-card__sub">Sign in to access your tickets and discover new events.</p>
 
           {apiError && (
             <Alert type="error" onDismiss={() => setApiError('')} style={{ marginBottom: 16 }}>
@@ -96,10 +95,10 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="auth-form">
             <Input
-              id="email"
+              id="cust-email"
               label="Email Address"
               type="email"
-              placeholder="you@svss.io"
+              placeholder="you@example.com"
               autoComplete="email"
               required
               error={errors.email?.message}
@@ -111,7 +110,7 @@ export default function LoginPage() {
 
             <div className="auth-pass-wrap">
               <Input
-                id="password"
+                id="cust-password"
                 label="Password"
                 type={showPass ? 'text' : 'password'}
                 placeholder="••••••••"
@@ -130,35 +129,35 @@ export default function LoginPage() {
               </button>
             </div>
 
-            <Button type="submit" loading={loading} fullWidth size="lg">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+            <Button type="submit" loading={loading} fullWidth size="lg" className="btn--customer">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/>
               </svg>
-              Sign In Securely
+              Sign In to Customer Portal
             </Button>
           </form>
 
           <p className="auth-footer" style={{ marginTop: 20 }}>
-            New staff member?{' '}
-            <Link to="/register" className="auth-link">Create staff account →</Link>
+            New here?{' '}
+            <Link to="/customer/register" className="auth-link auth-link--customer">
+              Create a free account →
+            </Link>
           </p>
 
-          {/* Customer portal separator */}
           <div className="auth-divider" style={{ margin: '20px 0 16px' }}>
             <span>or</span>
           </div>
           <div className="auth-portal-switch">
-            <p>Attending an event?</p>
-            <Link to="/customer/login" className="auth-portal-switch__link">
-              🎟️ Go to Customer Portal →
+            <p>SVSS staff member?</p>
+            <Link to="/login" className="auth-portal-switch__link auth-portal-switch__link--staff">
+              🛡️ Go to Staff Portal →
             </Link>
           </div>
 
-          <div className="auth-demo">
-            <p className="auth-demo__title">🔑 Staff Demo Credentials</p>
+          <div className="auth-demo auth-demo--customer">
+            <p className="auth-demo__title">🎟️ Demo Customer Account</p>
             <div className="auth-demo__rows">
-              <div><strong>Admin:</strong> admin@svss.io / any password</div>
-              <div><strong>Security:</strong> bob@svss.io / any password</div>
+              <div><strong>Customer:</strong> eva@svss.io / any password</div>
             </div>
           </div>
         </div>
