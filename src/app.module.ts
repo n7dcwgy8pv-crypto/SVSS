@@ -21,6 +21,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportsModule } from './reports/reports.module';
 import { EventsModule } from './events/events.module';
 import { CustomerTicketsModule } from './customer-tickets/customer-tickets.module';
+import { AdminEventsModule } from './admin-events/admin-events.module';
 
 // JWT Strategy (passport)
 import { AuthModule as LibAuthModule } from './libs/auth/auth.module';
@@ -79,6 +80,7 @@ import { AuthModule as LibAuthModule } from './libs/auth/auth.module';
     ReportsModule,
     EventsModule,
     CustomerTicketsModule,
+    AdminEventsModule,
   ],
   controllers: [AppController],
   providers: [
